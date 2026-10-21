@@ -186,8 +186,16 @@ export function peopleRoutes(deps: ApiDeps): Hono {
     // TODO(people-send-from dashboard PR): require `from` once the dashboard
     // sends it. Until then a send without it goes out from the service's only
     // account, and is refused while the service has several.
+    // A repeat of a send already recorded is answered from the record, so the
+    // check is for new sends only: the account it named may since be gone.
     const from = parsed.request.from;
-    if (from !== undefined && !deps.sendersOfLink(parsed.request.channel).includes(from)) {
+    const recorded =
+      parsed.request.id === undefined ? null : await deps.outboxRepo.findSend(parsed.request.id);
+    if (
+      from !== undefined &&
+      recorded === null &&
+      !deps.sendersOfLink(parsed.request.channel).includes(from)
+    ) {
       return c.json(
         { error: "Rome holds no account by that id that can send to this account" },
         400,

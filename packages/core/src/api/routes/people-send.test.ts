@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, rs } from "@rstest/core";
 import { Hono } from "hono";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type {
   LinkedAccount,
   OutboxMessage,
@@ -965,6 +965,27 @@ describe("People on an account whose channel id is opaque", () => {
       expect(deps.transports.get("telegram")?.sentMessages).toEqual([
         { conversationId: ADA, message: { text: "from the first" } },
       ]);
+    });
+
+    it("replays a recorded send after the account it went out from is removed", async () => {
+      const body = {
+        id: "5d0c4b1e-2f3a-4e5b-9c6d-7e8f9a0b1c2d",
+        text: "from the opaque account",
+        from: OPAQUE,
+      };
+      const first = await post(body);
+      expect(first.status).toBe(202);
+      const sent = (await first.json()) as OutboxMessage;
+
+      testDb.db
+        .update(channelRows)
+        .set({ connectionId: null })
+        .where(eq(channelRows.id, OPAQUE))
+        .run();
+      const again = await post(body);
+      expect(again.status).toBe(202);
+      expect(((await again.json()) as OutboxMessage).id).toBe(sent.id);
+      expect(deps.transports.get("telegram")?.sentMessages).toHaveLength(1);
     });
 
     // The link reaches the opaque account alone now, but the row went out from
