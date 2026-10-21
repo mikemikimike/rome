@@ -190,9 +190,8 @@ export async function retrySend(
   if (!(await heldBy(deps, accounts, id))) return null;
   const row = await deps.outboxRepo.reopen(id);
   if (row === null) return null;
-  // From the account it went out from the first time, and no other. A row
-  // from before that was recorded resolves as it did when it was written.
-  const resolution = await resolveSendTarget(deps, row, row.from ?? undefined);
+  // From the account it went out from the first time, and no other.
+  const resolution = await resolveSendTarget(deps, row, sentFrom(row));
   if (!resolution.ok) {
     const error = `cannot send on ${row.channel}: ${resolution.send}`;
     await deps.outboxRepo.refused(row.id, error);
@@ -359,14 +358,20 @@ function refsFor(row: OutboxRow, account: MessageAccount): string[] {
   return refs;
 }
 
+/** The channel of the account a row went out from. A row written before that
+ *  was recorded went out from the channel its link names exactly, since People
+ *  then reached no other. */
+function sentFrom(row: OutboxRow): string {
+  return row.from ?? row.channel;
+}
+
 /** This row's account, with every address the channel folds onto it, the
  *  row's own included, read under the channel the row went out from. Falls
- *  back to the row's own address for a channel that folds nothing, and to the
- *  account's own channel for a row from before the channel was recorded. */
+ *  back to the row's own address for a channel that folds nothing. */
 function landingAccount(accounts: readonly MessageAccount[], row: OutboxRow): MessageAccount {
   const account = accounts.find(
     (candidate) =>
       candidate.channel === row.channel && candidate.addresses.includes(row.channelUserId),
   ) ?? { channel: row.channel, addresses: [row.channelUserId] };
-  return row.from === null ? account : { ...account, storedUnder: row.from };
+  return { ...account, storedUnder: sentFrom(row) };
 }

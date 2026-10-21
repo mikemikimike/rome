@@ -990,6 +990,26 @@ describe("People on an account whose channel id is opaque", () => {
       expect(deps.transports.get("telegram")?.sentMessages).toEqual([]);
     });
 
+    // A row from before the sending account was recorded went out from the
+    // channel its link names. The service-named account is gone and an opaque
+    // one replaced it, so a retry is refused rather than moved.
+    it("retries a row from before the sender was recorded only from its own channel", async () => {
+      const row = await deps.outboxRepo.open({
+        channel: "telegram",
+        channelUserId: ADA,
+        conversationId: ADA,
+        text: "from the old account",
+      });
+      await deps.outboxRepo.refused(row.id, "provider down");
+
+      const retried = await app.request(`/people/${personId}/outbox/${row.id}/retry`, {
+        method: "POST",
+      });
+      expect(retried.status).toBe(202);
+      expect(((await retried.json()) as OutboxMessage).state).toBe("failed");
+      expect(deps.transports.get("telegram")?.sentMessages).toEqual([]);
+    });
+
     // Two of Rome's accounts may hand out the same provider message id. A row
     // lands only on a message stored under the account it went out from.
     it("confirms a row only against the account it went out from", async () => {
