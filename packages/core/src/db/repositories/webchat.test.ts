@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, rs } from "@rstest/core";
 import { eq, sql } from "drizzle-orm";
-import { createTestDb, type TestDb, identityServiceOf } from "../../test/helpers.js";
+import { createTestDb, type TestDb, identityConnectionKindOf } from "../../test/helpers.js";
 import { ApprovalsRepository } from "./approvals.js";
 import { PersonMappingRepository } from "./person-mapping.js";
-import { ChatSettingsRepository } from "../../conversation-settings/repository.js";
+import { ChatSettingsRepository } from "../../chat-settings/repository.js";
 import type { DrizzleDb } from "../index.js";
 import { romeAgentMessages, romeSessions, romeAgentTraceBlocks } from "../schema.js";
 import {
@@ -1657,7 +1657,7 @@ describe("WebChatRepository", () => {
       await repo.addMessage("m-9", "sess-bad", "assistant", '["plain text"]');
       const approvals = new ApprovalsRepository(
         testDb.db,
-        new PersonMappingRepository(testDb.db, identityServiceOf),
+        new PersonMappingRepository(testDb.db, identityConnectionKindOf),
       );
       const approval = (sessionId: string, status?: "approved") =>
         approvals.create({

@@ -20,7 +20,7 @@ import type { ChatStopHandler, ChannelActivity, ChannelInboundMedia } from "@rom
 import type { TalkDirectory, TalkFeatures, TalkHistory } from "../types.js";
 import { DiscordAdapter } from "../../channels/discord.js";
 import type { PersonMappingRepository } from "../../db/repositories/person-mapping.js";
-import type { ChatSettingsService } from "../../conversation-settings/service.js";
+import type { ChatSettingsService } from "../../chat-settings/service.js";
 import type { SetupFn } from "../setup/types.js";
 import { CredentialRejected, Disconnected } from "../errors.js";
 import { tokenPaste } from "../schemes.js";
@@ -236,7 +236,7 @@ export function makeDiscordDescriptor(deps: DiscordDeps): ConnectionDescriptor {
   botScheme.setup = makeDiscordSetup({ probeBotIdentity });
 
   return {
-    service: "discord",
+    connectionKind: "discord",
     severalAccounts: true,
     reviveProfile: (_grant, record) => reviveDiscordProfile(record),
     accountIdOf: (_grant, record) => (typeof record.botId === "string" && record.botId) || null,
@@ -326,6 +326,7 @@ export function makeDiscordDescriptor(deps: DiscordDeps): ConnectionDescriptor {
                     connectionId: kit.connectionId,
                     chatId: channel.id as import("@rome-os/app-runtime").ChatId,
                   },
+                  connectionKind: "discord",
                   service: "discord",
                   kind: channel.type === "thread" ? ("topic" as const) : ("channel" as const),
                   displayName: channel.name,

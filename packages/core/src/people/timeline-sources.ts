@@ -57,7 +57,7 @@ export function personMessageStores(deps: {
  *
  * Each account keeps the `channel` its link names, and is read on the one
  * channel that link reaches (`channelOfLink`), or on none when the link names
- * a service Rome holds several accounts of. Rome never merges or picks among
+ * a connection kind Rome holds several accounts of. Rome never merges or picks among
  * them. Absent `channelOfLink`, a link reaches the channel it names.
  *
  * Two links that name two addresses of one account collapse to one account, so

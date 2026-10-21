@@ -13,8 +13,8 @@
 // contract offers surfaces a preselected account; it is a default rendered on
 // screen, not a decision taken off it.
 //
-// Nor does Rome pick among its own accounts of one service. A link names the
-// service, and reaches the service's account only while the service has one
+// Nor does Rome pick among its own accounts of one connection kind. A link names the
+// connection kind, and reaches the connection kind's account only while the connection kind has one
 // (`ChannelOfLink`). With several, a send to the link is refused rather than
 // sent from an account nobody chose.
 //
@@ -36,7 +36,7 @@ export interface SendAccount {
 export interface SendDeps {
   channels: Channels;
   /** The one channel each link reaches. Absent, a link reaches the channel it
-   *  names, which holds only while no service has a later channel. */
+   *  names, which holds only while no connection kind has a later channel. */
   channelOfLink?: ChannelOfLink;
 }
 
@@ -71,7 +71,7 @@ async function sendStateOf(
   from?: string,
 ): Promise<{ state: RefusedState } | { state: "yes"; target: SendTarget }> {
   const name = from ?? (deps.channelOfLink ?? ((link: string) => link))(account.channel);
-  // A link that reaches no one channel names a service Rome holds several
+  // A link that reaches no one channel names a connection kind Rome holds several
   // accounts of. No Connection answers for the link as such, and connecting
   // or removing an account is what settles it, so it reads as not connected.
   if (name === null) return { state: "not-connected" };

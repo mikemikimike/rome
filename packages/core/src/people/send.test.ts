@@ -50,19 +50,19 @@ describe("readSendStates", () => {
   });
 });
 
-describe("a link keyed by a service", () => {
+describe("a link keyed by a connection kind", () => {
   const open = (name: string) => channel(name, sending({ chatFor: async (id) => id as ChatId }));
   const unbacked = (name: string) =>
     channel(name, sending({ chatFor: () => Promise.reject(new ChannelNotConnected(name)) }));
   const link = { channel: "telegram", channelUserId: "u" };
 
-  it("sends on the service's own channel exactly as on any other", async () => {
+  it("sends on the kind's own channel exactly as on any other", async () => {
     const resolution = await resolveSendTarget({ channels: [open("telegram")] }, link);
     expect(resolution.ok && resolution.target.channel).toBe("telegram");
   });
 
-  it("sends on the service's only account when its id is opaque", async () => {
-    // The service's own channel is always listed, backed or not.
+  it("sends on the kind's only account when its id is opaque", async () => {
+    // The connection kind's own channel is always listed, backed or not.
     const deps = {
       channels: [unbacked("telegram"), open("tg-opaque")],
       channelOfLink: (linked: string) => (linked === "telegram" ? "tg-opaque" : linked),

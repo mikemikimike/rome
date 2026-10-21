@@ -1,11 +1,11 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
-import type { ChatSettingsControl } from "./conversation-settings.js";
+import type { ChatSettingsControl } from "./chat-settings.js";
 
 export { z };
 export type { JSONSchema };
-export * from "./conversation-settings.js";
+export * from "./chat-settings.js";
 
 // Browser-safe package entry point. Node-only CDP helpers live under the `/browser` subpath.
 
@@ -1684,6 +1684,9 @@ export interface ChatRef {
 
 export interface ChatDescriptor {
   ref: ChatRef;
+  /** The kind of connection the chat is reached through, such as `telegram_user`. */
+  connectionKind: string;
+  /** @deprecated Read `connectionKind`, which carries the same value. */
   service: string;
   kind: "dm" | "group" | "channel" | "topic";
   displayName: string;
@@ -1742,6 +1745,12 @@ export interface ChannelMessageQuery {
 export interface ChannelSummary {
   /** The channel's name, as every stored row and link spells it. */
   name: string;
+  /** The platform the channel is an account on, such as `telegram`. Rome can
+   *  hold several accounts on one platform, each its own channel: a Telegram
+   *  bot and a signed-in Telegram are both on `telegram`. A channel named after
+   *  its platform is only one of them. Absent where Rome does not know the
+   *  platform. */
+  platform?: string;
   /** Whether a Connection backs the channel, so `send` has something to send
    *  through. A send can still fail while that Connection is locked or
    *  offline. */

@@ -771,7 +771,7 @@ describe("People on an account whose channel id is opaque", () => {
       .insert(channelRows)
       .values({
         id: OPAQUE,
-        service: "telegram",
+        connectionKind: "telegram",
         platform: "telegram",
         connectionId: "test:telegram",
         createdAt: new Date(0),
@@ -786,9 +786,9 @@ describe("People on an account whose channel id is opaque", () => {
         connections: {
           registry: base.connections,
           channelOf: (connection) =>
-            connection.service === "telegram" ? OPAQUE : connection.service,
+            connection.connectionKind === "telegram" ? OPAQUE : connection.connectionKind,
         },
-        laterChannels: [{ name: OPAQUE, service: "telegram" }],
+        laterChannels: [{ name: OPAQUE, connectionKind: "telegram" }],
       }),
     };
     app = new Hono().route("/", peopleRoutes(deps));
@@ -834,7 +834,7 @@ describe("People on an account whose channel id is opaque", () => {
   const timeline = async (): Promise<TimelinePage> =>
     (await (await app.request(`/people/${personId}/messages`)).json()) as TimelinePage;
 
-  it("links the account under its service and reads it as sendable", async () => {
+  it("links the account under its connection kind and reads it as sendable", async () => {
     expect((await person()).accounts).toMatchObject([
       { channel: "telegram", channelUserId: ADA, send: "yes" },
     ]);
@@ -880,12 +880,12 @@ describe("People on an account whose channel id is opaque", () => {
 
   // Rome never picks among a service's accounts: with a second one connected,
   // the link reaches neither, for sending or for history.
-  it("reaches none of two accounts of the service", async () => {
+  it("reaches none of two accounts of one connection kind", async () => {
     testDb.db
       .insert(channelRows)
       .values({
         id: "tg-second",
-        service: "telegram",
+        connectionKind: "telegram",
         platform: "telegram",
         connectionId: "test:telegram-second",
         createdAt: new Date(0),
@@ -920,7 +920,7 @@ describe("People on an account whose channel id is opaque", () => {
         .insert(channelRows)
         .values({
           id: "tg-second",
-          service: "telegram",
+          connectionKind: "telegram",
           platform: "telegram",
           connectionId: "test:telegram-second",
           createdAt: new Date(60_000),
@@ -945,7 +945,7 @@ describe("People on an account whose channel id is opaque", () => {
       ]);
     });
 
-    it("refuses an account of another service, or one Rome does not hold", async () => {
+    it("refuses an account of another connection kind, or one Rome does not hold", async () => {
       for (const from of ["webchat", "telegram", "tg-unknown"]) {
         const res = await post({ text: "hello", from });
         expect(res.status).toBe(400);

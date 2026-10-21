@@ -586,8 +586,15 @@
     {
       "idx": 84,
       "version": "6",
-      "when": 1792563372933,
-      "tag": "0084_outbox_send_from",
+      "when": 1792568813319,
+      "tag": "0084_chat_id_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "6",
+      "when": 1792568814319,
+      "tag": "0085_outbox_send_from",
       "breakpoints": true
     }
   ]

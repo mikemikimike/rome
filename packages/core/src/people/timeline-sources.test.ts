@@ -171,10 +171,10 @@ describe("timelineAccounts", () => {
   });
 });
 
-describe("timelineAccounts for a link keyed by a service", () => {
+describe("timelineAccounts for a link keyed by a connection kind", () => {
   const channels = channelList({ telegram: null, "tg-opaque": null, "tg-second": null });
 
-  it("reads the account under the service's only account's channel", async () => {
+  it("reads the account under the kind's only account's channel", async () => {
     const [accounts] = await timelineAccounts(
       { channels, channelOfLink: (link) => (link === "telegram" ? "tg-opaque" : link) },
       [[{ channel: "telegram", channelUserId: adaTelegram }]],
@@ -185,7 +185,7 @@ describe("timelineAccounts for a link keyed by a service", () => {
     ]);
   });
 
-  it("reads it under no channel when the service has several accounts", async () => {
+  it("reads it under no channel when the kind has several accounts", async () => {
     const [accounts] = await timelineAccounts(
       { channels, channelOfLink: (link) => (link === "telegram" ? null : link) },
       [
@@ -202,7 +202,7 @@ describe("timelineAccounts for a link keyed by a service", () => {
     ]);
   });
 
-  it("reads a service with only its own channel exactly as before", async () => {
+  it("reads a kind with only its own channel exactly as before", async () => {
     const [accounts] = await timelineAccounts({ channels, channelOfLink: (link) => link }, [
       [{ channel: "telegram", channelUserId: adaTelegram }],
     ]);

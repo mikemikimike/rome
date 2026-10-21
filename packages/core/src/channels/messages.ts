@@ -36,7 +36,7 @@ export interface MessageAccount {
   addresses: readonly string[];
   /**
    * The channel the account's messages are stored under, when it is not
-   * `channel`: a link keyed by a service names the service, and a store keys a
+   * `channel`: a link keyed by a connection kind names the connection kind, and a store keys a
    * message by the channel it arrived on. Null when the link reaches no one
    * channel, and a store then reads nothing for the account. Absent,
    * `channel`. Either way an entry read for the account carries `channel` as
