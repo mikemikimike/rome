@@ -27,7 +27,7 @@ import {
   romeSessions,
 } from "../../db/schema.js";
 import { channelList } from "../../channels/channel-list.js";
-import { channelConversationId } from "../../db/session-kind.js";
+import { channelChatId } from "../../db/session-kind.js";
 import { conversationPlatformMessageId } from "../../db/repositories/webchat.js";
 import { SEND_IDEMPOTENCY_RETENTION_MS } from "@rome/api-types/people";
 
@@ -102,7 +102,7 @@ describe("People send API", () => {
     });
 
     expect(deps.transports.get("telegram")?.sentMessages).toEqual([
-      { conversationId: TG, message: { text: "on my way" } },
+      { chatId: TG, message: { text: "on my way" } },
     ]);
   });
 
@@ -218,12 +218,10 @@ describe("People send API", () => {
     const replayed = await send(body);
     expect(replayed.status).toBe(202);
     expect(await replayed.json()).toEqual(original);
-    expect(await deps.outboxRepo.openOnce({ ...body, conversationId: row.conversationId })).toEqual(
-      {
-        created: false,
-        message: original,
-      },
-    );
+    expect(await deps.outboxRepo.openOnce({ ...body, chatId: row.chatId })).toEqual({
+      created: false,
+      message: original,
+    });
     expect(await deps.outboxRepo.find(body.id)).toBeNull();
     expect(await outbox()).toEqual([]);
     expect(deps.transports.get("telegram")?.sentMessages).toHaveLength(1);
@@ -456,7 +454,7 @@ describe("People send API — delivery bookkeeping", () => {
     const row = await deps.outboxRepo.open({
       channel: "whatsapp",
       channelUserId: LID,
-      conversationId: LID,
+      chatId: LID,
       text: "stranded",
     });
     // Older than the window a send is given to answer in.
@@ -514,7 +512,7 @@ describe("People send API — delivery bookkeeping", () => {
     const row = await deps.outboxRepo.open({
       channel: "whatsapp",
       channelUserId: LID,
-      conversationId: LID,
+      chatId: LID,
       text: "still going",
     });
     // The one state where Rome does not yet know what happened. Dropping the
@@ -660,7 +658,7 @@ describe("People send API — delivery bookkeeping", () => {
       const row = await deps.outboxRepo.open({
         channel: "telegram",
         channelUserId: "tg-unmirrored",
-        conversationId: "tg-unmirrored",
+        chatId: "tg-unmirrored",
         text: "still going",
       });
       rs.setSystemTime(startedAt + 4 * MINUTE);
@@ -803,7 +801,7 @@ describe("People on an account whose channel id is opaque", () => {
     });
 
     // What Ada said to that account, as Rome's transcript holds it.
-    const sessionId = channelConversationId(OPAQUE, ADA);
+    const sessionId = channelChatId(OPAQUE, ADA);
     testDb.db
       .insert(romeSessions)
       .values({
@@ -859,7 +857,7 @@ describe("People on an account whose channel id is opaque", () => {
 
     expect(res.status).toBe(202);
     expect(deps.transports.get("telegram")?.sentMessages).toEqual([
-      { conversationId: ADA, message: { text: "hi Ada" } },
+      { chatId: ADA, message: { text: "hi Ada" } },
     ]);
     // Rome's line joins the conversation the account already holds, rather
     // than one under the service's name.
@@ -873,8 +871,8 @@ describe("People on an account whose channel id is opaque", () => {
       .from(romeAgentMessages)
       .all();
     expect(held.map((row) => row.sessionId)).toEqual([
-      channelConversationId(OPAQUE, ADA),
-      channelConversationId(OPAQUE, ADA),
+      channelChatId(OPAQUE, ADA),
+      channelChatId(OPAQUE, ADA),
     ]);
     const outboxRes = await app.request(`/people/${personId}/outbox`);
     expect(((await outboxRes.json()) as OutboxPage).messages).toEqual([]);
@@ -943,7 +941,7 @@ describe("People on an account whose channel id is opaque", () => {
       expect(message.from).toBe(OPAQUE);
       expect((await deps.outboxRepo.find(message.id))?.from).toBe(OPAQUE);
       expect(deps.transports.get("telegram")?.sentMessages).toEqual([
-        { conversationId: ADA, message: { text: "from the opaque account" } },
+        { chatId: ADA, message: { text: "from the opaque account" } },
       ]);
     });
 
@@ -963,7 +961,7 @@ describe("People on an account whose channel id is opaque", () => {
       expect(res.status).toBe(202);
       expect(((await res.json()) as OutboxMessage).from).toBe(OPAQUE);
       expect(deps.transports.get("telegram")?.sentMessages).toEqual([
-        { conversationId: ADA, message: { text: "from the first" } },
+        { chatId: ADA, message: { text: "from the first" } },
       ]);
     });
 
@@ -994,7 +992,7 @@ describe("People on an account whose channel id is opaque", () => {
       const row = await deps.outboxRepo.open({
         channel: "telegram",
         channelUserId: ADA,
-        conversationId: ADA,
+        chatId: ADA,
         text: "from a removed account",
         from: "tg-second",
       });
@@ -1018,7 +1016,7 @@ describe("People on an account whose channel id is opaque", () => {
       const row = await deps.outboxRepo.open({
         channel: "telegram",
         channelUserId: ADA,
-        conversationId: ADA,
+        chatId: ADA,
         text: "from the old account",
       });
       await deps.outboxRepo.refused(row.id, "provider down");
@@ -1035,12 +1033,12 @@ describe("People on an account whose channel id is opaque", () => {
     // lands only on a message stored under the account it went out from.
     it("confirms a row only against the account it went out from", async () => {
       connectSecond();
-      const sessionId = channelConversationId(OPAQUE, ADA);
+      const sessionId = channelChatId(OPAQUE, ADA);
       const sentFrom = async (from: string, providerMessageId: string) => {
         const row = await deps.outboxRepo.open({
           channel: "telegram",
           channelUserId: ADA,
-          conversationId: ADA,
+          chatId: ADA,
           text: `sent from ${from}`,
           from,
         });

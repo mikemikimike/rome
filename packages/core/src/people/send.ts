@@ -49,7 +49,7 @@ export interface SendDeps {
 export interface SendTarget {
   channel: string;
   send: ChannelSend;
-  conversationId: ChatId;
+  chatId: ChatId;
 }
 
 export type Resolution = { ok: true; target: SendTarget } | { ok: false; send: RefusedState };
@@ -87,15 +87,15 @@ async function sendStateOf(
   // person read already gives for this account. Letting it escape would make
   // the send path report a 500 where the read reported `no-conversation`, so
   // the two would disagree about one condition.
-  let conversationId: ChatId | null;
+  let chatId: ChatId | null;
   try {
-    conversationId = await direct.chatFor(account.channelUserId);
+    chatId = await direct.chatFor(account.channelUserId);
   } catch (err) {
     if (err instanceof ChannelNotConnected) return { state: "not-connected" };
-    conversationId = null;
+    chatId = null;
   }
-  if (conversationId === null) return { state: "no-conversation" };
-  return { state: "yes", target: { channel: channel.name, send, conversationId } };
+  if (chatId === null) return { state: "no-conversation" };
+  return { state: "yes", target: { channel: channel.name, send, chatId } };
 }
 
 /**
@@ -145,6 +145,6 @@ export interface SendReceipt {
  * only it knows which outbox row is waiting on the answer.
  */
 export async function sendToTarget(target: SendTarget, text: string): Promise<SendReceipt> {
-  const receipt = await target.send.send(target.conversationId, { text });
+  const receipt = await target.send.send(target.chatId, { text });
   return { messageId: receipt.messageId ?? null };
 }

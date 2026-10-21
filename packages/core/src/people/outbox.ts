@@ -17,7 +17,7 @@ import {
 } from "@rome/api-types/people";
 import { createLogger } from "../logger.js";
 import { heldOn, type AccountMessages, type MessageAccount } from "../channels/messages.js";
-import { channelConversationId } from "../db/repositories/webchat.js";
+import { channelChatId } from "../db/repositories/webchat.js";
 import { conversationPlatformMessageId } from "../db/repositories/webchat.js";
 import type { OutboxAccount, OutboxRepository, OutboxRow } from "../db/repositories/outbox.js";
 import { outboxMessage as wire } from "../db/repositories/outbox.js";
@@ -107,7 +107,7 @@ export async function sendToAccount(
   const input = {
     channel: account.channel,
     channelUserId: account.channelUserId,
-    conversationId: resolution.target.conversationId,
+    chatId: resolution.target.chatId,
     text,
     from: resolution.target.channel,
   };
@@ -197,7 +197,7 @@ export async function retrySend(
     await deps.outboxRepo.refused(row.id, error);
     return wire({ ...row, state: "failed", error });
   }
-  if (resolution.target.conversationId !== row.conversationId) {
+  if (resolution.target.chatId !== row.chatId) {
     const error = "The account's conversation changed. Discard this reply and compose a new one.";
     await deps.outboxRepo.refused(row.id, error);
     return wire({ ...row, state: "failed", error });
@@ -241,7 +241,7 @@ async function record(
 ): Promise<void> {
   const conversation = await deps.webchatRepo.ensureChannelChat({
     channel,
-    threadId: row.conversationId,
+    threadId: row.chatId,
   });
   await deps.webchatRepo.recordOutboundConversationMessage({
     sessionId: conversation.id,
@@ -347,12 +347,12 @@ function refsFor(row: OutboxRow, account: MessageAccount): string[] {
   const messageId = row.providerMessageId;
   if (messageId === null) return [];
   const refs = [
-    `${row.conversationId}:${messageId}`,
+    `${row.chatId}:${messageId}`,
     ...new Set(account.addresses.map((address) => `${address}:${messageId}`)),
   ];
   const channel = heldOn(account);
   if (channel !== null) {
-    const sessionId = channelConversationId(channel, row.conversationId);
+    const sessionId = channelChatId(channel, row.chatId);
     refs.push(`agent:${conversationPlatformMessageId(sessionId, messageId)}`);
   }
   return refs;
