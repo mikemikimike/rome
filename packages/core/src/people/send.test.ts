@@ -51,13 +51,9 @@ describe("readSendStates", () => {
 });
 
 describe("a link keyed by a service", () => {
-  const open = (name: string) =>
-    channel(name, sending({ conversationFor: async (id) => id as ChatId }));
+  const open = (name: string) => channel(name, sending({ chatFor: async (id) => id as ChatId }));
   const unbacked = (name: string) =>
-    channel(
-      name,
-      sending({ conversationFor: () => Promise.reject(new ChannelNotConnected(name)) }),
-    );
+    channel(name, sending({ chatFor: () => Promise.reject(new ChannelNotConnected(name)) }));
   const link = { channel: "telegram", channelUserId: "u" };
 
   it("sends on the service's own channel exactly as on any other", async () => {
@@ -83,7 +79,7 @@ describe("a link keyed by a service", () => {
       channel(
         name,
         sending({
-          conversationFor: async (id) => {
+          chatFor: async (id) => {
             asked++;
             return id as ChatId;
           },
