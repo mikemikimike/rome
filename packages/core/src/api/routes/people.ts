@@ -181,34 +181,20 @@ export function peopleRoutes(deps: ApiDeps): Hono {
     }
 
     // The account the message goes out from has to be one of Rome's accounts
-    // on the link's service that can send to this account. Rome never
-    // substitutes another for it.
+    // of the link's connection kind that can send to this account. Rome never
+    // substitutes another for it. `sendToAccount` checks it for a new send.
     // TODO(people-send-from dashboard PR): require `from` once the dashboard
-    // sends it. Until then a send without it goes out from the service's only
-    // account, and is refused while the service has several.
-    // A repeat of a send already recorded is answered from the record, so the
-    // check is for new sends only: the account it named may since be gone.
-    const from = parsed.request.from;
-    const recorded =
-      parsed.request.id === undefined ? null : await deps.outboxRepo.findSend(parsed.request.id);
-    if (
-      from !== undefined &&
-      recorded === null &&
-      !deps.sendersOfLink(parsed.request.channel).includes(from)
-    ) {
-      return c.json(
-        { error: "Rome holds no account by that id that can send to this account" },
-        400,
-      );
-    }
-
+    // sends it. Until then a send without it goes out from the kind's only
+    // account, and is refused while Rome holds several.
     const result = await sendToAccount(
       deps,
       parsed.request,
       parsed.request.text,
       parsed.request.id,
-      from,
+      parsed.request.from,
+      deps.sendersOfLink(parsed.request.channel),
     );
+    if (!result.ok && "invalid" in result) return c.json({ error: result.invalid }, 400);
     if (!result.ok && "error" in result) return c.json({ error: result.error }, 409);
     return result.ok
       ? c.json(result.message, 202)

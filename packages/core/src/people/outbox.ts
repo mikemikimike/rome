@@ -75,7 +75,8 @@ export interface OutboxDeps extends SendDeps {
 export type SendResult =
   | { ok: true; message: OutboxMessage }
   | { ok: false; send: RefusedState }
-  | { ok: false; error: string };
+  | { ok: false; error: string }
+  | { ok: false; invalid: string };
 
 /**
  * Send to one account, and answer with the outbox row it became.
@@ -92,6 +93,7 @@ export async function sendToAccount(
   text: string,
   id?: string,
   from?: string,
+  senders?: readonly string[],
 ): Promise<SendResult> {
   const replay = (message: OutboxMessage): SendResult =>
     matchesSendRequest(message, { ...account, text, ...(from === undefined ? {} : { from }) })
@@ -100,6 +102,11 @@ export async function sendToAccount(
   if (id) {
     const existing = await deps.outboxRepo.findSend(id);
     if (existing) return replay(existing);
+  }
+  // Checked for a new send only, after the replay above: the account a
+  // recorded send named may since be gone.
+  if (from !== undefined && senders !== undefined && !senders.includes(from)) {
+    return { ok: false, invalid: "Rome holds no account by that id that can send to this account" };
   }
   const resolution = await resolveSendTarget(deps, account, from);
   if (!resolution.ok) return { ok: false, send: resolution.send };
@@ -295,13 +302,24 @@ export async function readOutbox(
 
   // Each row is looked for under the account it went out from and nowhere
   // else, so a message another of Rome's accounts holds under the same
-  // provider id cannot clear it. The reads are issued together, and a store
-  // answers them in one pass.
+  // provider id cannot clear it. Rows that landed on one account share one
+  // read of it.
+  const reads = new Map<string, Promise<Set<string>>>();
+  const refsOn = (account: MessageAccount): Promise<Set<string>> => {
+    const key = JSON.stringify([account.channel, account.storedUnder, account.addresses]);
+    let read = reads.get(key);
+    if (read === undefined) {
+      read = readPersonTimeline(stores, [account], { limit: LANDING_WINDOW }).then(
+        ({ entries }) => new Set(entries.map((entry) => entry.ref)),
+      );
+      reads.set(key, read);
+    }
+    return read;
+  };
   const arrived = await Promise.all(
     awaiting.map(async (row) => {
       const account = landingAccount(accounts, row);
-      const { entries } = await readPersonTimeline(stores, [account], { limit: LANDING_WINDOW });
-      const refs = new Set(entries.map((entry) => entry.ref));
+      const refs = await refsOn(account);
       return refsFor(row, account).some((ref) => refs.has(ref));
     }),
   );
