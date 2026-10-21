@@ -373,9 +373,7 @@ async function main() {
     ledger: new DrizzleGrantLedger(db),
     onMint: (tx, record, profile) => {
       if (!talks(record.service)) return;
-      channelRecords.claim(tx, { ...record, domain: domainOf(profile) }, record.createdAt, {
-        fresh: true,
-      });
+      channelRecords.claim(tx, { ...record, domain: domainOf(profile) }, record.createdAt);
     },
     onRemove: (tx, id) => channelRecords.vacate(tx, id),
   });
