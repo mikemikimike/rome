@@ -127,8 +127,13 @@ describe("ChannelRecordsRepository", () => {
   });
 
   it("reaches a service's one account from a link, and none of several", () => {
-    const records = repository();
-    const db = testDb!.db;
+    const db = repository() && testDb!.db;
+    // Rows are written here around the repository, so each read is a fresh
+    // repository's, with nothing cached from before the write.
+    const records = {
+      channelOfLink: (link: string) => new ChannelRecordsRepository(db).channelOfLink(link),
+      vacate: (connectionId: string) => new ChannelRecordsRepository(db).vacate(db, connectionId),
+    };
     // Nothing recorded: a link reaches the channel it names, as it always has.
     expect(records.channelOfLink("telegram")).toBe("telegram");
     expect(records.channelOfLink("whatsapp")).toBe("whatsapp");
@@ -151,8 +156,22 @@ describe("ChannelRecordsRepository", () => {
     expect(records.channelOfLink("tg-second")).toBe("tg-second");
 
     // A removed account is not an account.
-    records.vacate(db, "c1");
+    records.vacate("c1");
     expect(records.channelOfLink("telegram")).toBe("tg-second");
+  });
+
+  it("answers a link again once an account connects, with no stale answer cached", () => {
+    const records = repository();
+    const db = testDb!.db;
+    records.claim(db, { id: "c1", service: "telegram" }, NOW);
+    expect(records.channelOfLink("telegram")).toBe("telegram");
+    expect(records.channelOfLink("telegram")).toBe("telegram");
+
+    records.claim(db, { id: "c2", service: "telegram" }, NOW);
+    expect(records.channelOfLink("telegram")).toBeNull();
+
+    records.vacate(db, "c2");
+    expect(records.channelOfLink("telegram")).toBe("telegram");
   });
 
   it("reaches the service's own channel from a link while it is the only account", () => {

@@ -84,6 +84,10 @@ export class ChannelRecordsRepository {
    *  moves a Connection empties it (a link moves none), and nothing is cached
    *  while a transaction is open, so a rolled-back write leaves no id behind. */
   private readonly ids = new Map<string, string | null>();
+  /** `channelOfLink` by link, read for every link on every People read. It
+   *  empties with `ids`, since only a write that moves a Connection changes
+   *  which channels are backed. */
+  private readonly links = new Map<string, string | null>();
 
   constructor(private readonly db: DrizzleDb) {}
 
@@ -117,6 +121,14 @@ export class ChannelRecordsRepository {
    * row stays after its account is removed and is not an account.
    */
   channelOfLink(link: string): string | null {
+    const cached = this.links.get(link);
+    if (cached !== undefined) return cached;
+    const reached = this.reachedBy(link);
+    if (!inTransaction(this.db)) this.links.set(link, reached);
+    return reached;
+  }
+
+  private reachedBy(link: string): string | null {
     const own = this.byId(link);
     if (own && own.service !== link) return link;
     const backed = this.db
@@ -167,6 +179,7 @@ export class ChannelRecordsRepository {
     const held = exec.select().from(channels).where(eq(channels.connectionId, connection.id)).get();
     if (held) return toRecord(held);
     this.ids.clear();
+    this.links.clear();
 
     const service = connection.service;
     const vacant = LINKABLE_SERVICES.has(service)
@@ -211,6 +224,7 @@ export class ChannelRecordsRepository {
    *  its link goes: an agent stays linked only where it can still answer. */
   vacate(exec: Exec, connectionId: string): void {
     this.ids.clear();
+    this.links.clear();
     exec
       .update(channels)
       .set({ connectionId: null, agent: null })
