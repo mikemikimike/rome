@@ -1,4 +1,4 @@
-// Connection caller and builder contracts. Messaging model: docs/concepts/messaging.md.
+// Connection caller and builder contracts. Vocabulary: docs/domains/connections.md.
 //
 // The runtime never inspects the contents of a credential's `material` (only
 // the `expiresAt` envelope).
@@ -53,7 +53,9 @@ export interface TalkFeatureMap {
   inboundMedia: ChannelInboundMedia;
   activity: ChannelActivity;
   directory: TalkDirectory;
-  directMessaging: ChannelDirectMessaging;
+  /** A talker answers only `chatFor`. The channel port adds the deprecated
+   *  `conversationFor` for callers. */
+  directMessaging: Pick<ChannelDirectMessaging, "chatFor">;
   /** Writing a reply as it is generated: creating and editing messages. */
   replyDelivery: DeliveryTransport;
 }
@@ -314,7 +316,7 @@ export interface ConnectionDescriptor {
    *  with its own Connection and channel. A service that keeps its stores or
    *  adapter state under one channel, or is a single presence by nature
    *  (webchat, email), leaves it unset. Vocabulary:
-   *  docs/concepts/messaging.md#romes-accounts. */
+   *  docs/domains/chats.md#account. */
   severalAccounts?: boolean;
   /** The platform account a grant's profile names (a bot id, an app id), or
    *  null when the profile names none. It reads the one field rather than

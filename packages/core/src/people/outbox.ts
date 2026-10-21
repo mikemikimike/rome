@@ -52,7 +52,7 @@ const log = createLogger("people-outbox");
  *  session, and Rome's own record of what it said there. Named as `ApiDeps`
  *  names it so no adapter sits between the two. */
 export interface ChatStore {
-  ensureChannelConversation(input: {
+  ensureChannelChat(input: {
     channel: string;
     threadId: string;
     agentName?: string;
@@ -236,7 +236,7 @@ async function record(
   channel: string,
   messageId: string | null,
 ): Promise<void> {
-  const conversation = await deps.webchatRepo.ensureChannelConversation({
+  const conversation = await deps.webchatRepo.ensureChannelChat({
     channel,
     threadId: row.conversationId,
   });

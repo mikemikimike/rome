@@ -407,9 +407,7 @@ async function main() {
     streaming: replyStreamingOn,
     replies: (name) => builtChannels?.find((channel) => channel.name === name)?.send?.replies,
     clock: systemClock,
-    ...(appRuntimeRepositories.conversations
-      ? { conversations: appRuntimeRepositories.conversations }
-      : {}),
+    ...(appRuntimeRepositories.chats ? { chats: appRuntimeRepositories.chats } : {}),
   });
   const channelsService = createChannelsService({
     channels: () => builtChannels,
@@ -734,7 +732,7 @@ async function main() {
   // (injected into appActionDeps) and the WorkerRPC handlers, so a worker's
   // proxy and a main-process call resolve to identical behavior.
   const eventService = new EventService(eventBus, eventCatalog);
-  const conversationSettings = new ChatSettingsService({
+  const chatSettings = new ChatSettingsService({
     repository: new ChatSettingsRepository(db),
     connections: connectionRegistry,
     channelOf,
@@ -837,7 +835,7 @@ async function main() {
       activeSubagentRegistry,
       turnMiddleware: turnMiddlewareChain,
       resolveProviderSessionReset: async (ref) =>
-        (await conversationSettings.get(ref)).effective.session.reset,
+        (await chatSettings.get(ref)).effective.session.reset,
       usageRecorder,
       channelSurface: (channel) => {
         const talker = connectionRegistry.getDescriptor(serviceOfChannel(channel))?.capabilities
@@ -908,7 +906,7 @@ async function main() {
     // no backend turn runs before boot completes.
     channel: (name) => channels.find((channel) => channel.name === name) ?? null,
     resolveWorkingDir: resolveContinuationWorkingDir,
-    conversations: appRuntimeRepositories.conversations!,
+    chats: appRuntimeRepositories.chats!,
   });
 
   const approvalHandler = new ApprovalHandler(
@@ -943,7 +941,9 @@ async function main() {
       resolveOneOffDate(trigger, () => resolveGuardianTimezone(settingsRepo)),
     resolveArtifactReference,
     channelsService,
-    conversationSettings,
+    chatSettings,
+    // Apps built before the chat rename read `conversationSettings`.
+    conversationSettings: chatSettings,
     capabilityDiscovery,
     personMappingRepo,
     sentinelLogRepo,
@@ -1185,7 +1185,7 @@ async function main() {
   const mailProvider = new RomeCloudMailProvider();
   registerBuiltinConnections(connectionRegistry, {
     settingsRepo,
-    conversationSettings,
+    chatSettings,
     chatStop,
     personMappingRepo,
     webchatRepo,
@@ -1266,7 +1266,8 @@ async function main() {
     try {
       const loadedHook = await createChannelMessageHookFromCatalog(appCatalog, {
         actionEngine,
-        conversationSettings,
+        chatSettings,
+        conversationSettings: chatSettings,
         chatStop,
         channels: hookChannels,
         accountAgentOf,
@@ -1307,7 +1308,8 @@ async function main() {
         catalog: appCatalog,
         deps: {
           actionEngine,
-          conversationSettings,
+          chatSettings,
+          conversationSettings: chatSettings,
           chatStop,
           channels: hookChannels,
           accountAgentOf,
@@ -1430,7 +1432,7 @@ async function main() {
     channelsService,
     connectionRegistry,
     channelOf,
-    conversationSettings,
+    chatSettings,
     routinesRepo,
     routineEngine,
     eventService,
@@ -1562,7 +1564,7 @@ async function main() {
       nodeDevices,
       notifyPairingResolution: (approval) => notifyPairingResolution(connectionRegistry, approval),
       channelsService,
-      conversationSettings,
+      chatSettings,
       actionEngine,
       actionLoader,
       personMappingRepo,
