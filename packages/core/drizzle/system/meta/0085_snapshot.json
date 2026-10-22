@@ -1,5 +1,5 @@
 {
-  "id": "b35224c6-d35b-40c5-9c84-f2507bd7dc69",
+  "id": "03a3a28f-e49e-4bf8-9e0f-15ccc8cedb38",
   "prevId": "278eeba7-4a7e-457a-8727-7694b862111b",
   "version": "6",
   "dialect": "sqlite",
@@ -353,8 +353,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "service": {
-          "name": "service",
+        "connection_kind": {
+          "name": "connection_kind",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -494,8 +494,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "service": {
-          "name": "service",
+        "connection_kind": {
+          "name": "connection_kind",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1215,13 +1215,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "from_channel": {
-          "name": "from_channel",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         }
       },

@@ -874,7 +874,7 @@ export const executionJournal = sqliteTable(
 // connectionId).
 export const connections = sqliteTable("connections", {
   id: text("id").primaryKey(),
-  connectionKind: text("service").notNull(),
+  connectionKind: text("connection_kind").notNull(),
   label: text("label").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
@@ -892,7 +892,7 @@ export const channels = sqliteTable(
   "channels",
   {
     id: text("id").primaryKey(),
-    connectionKind: text("service").notNull(),
+    connectionKind: text("connection_kind").notNull(),
     platform: text("platform").notNull(),
     connectionId: text("connection_id"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),

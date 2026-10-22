@@ -9,7 +9,10 @@ import {
 } from "@larksuiteoapi/node-sdk";
 import { isStopCommand } from "@rome-os/app-runtime";
 import { answeringAgentOf, describeAnsweringAgent, storedAgentChoice } from "./account-agents.js";
+import { feishuTransport } from "./delivery/transports/feishu.js";
+import type { DeliveryTransport } from "./delivery/types.js";
 import { preserveMentionOnlyText } from "./mention-only.js";
+import { isLinkCodeMessage } from "./guardian-link-code.js";
 import type { OutgoingMessage } from "./types.js";
 import { createLogger } from "../logger.js";
 import type { PersonMappingRepository } from "../db/repositories/person-mapping.js";
@@ -216,7 +219,7 @@ export class FeishuAdapter {
     const opts = message.replyToMessageId
       ? {
           replyTo: message.replyToMessageId,
-          replyInThread: (await this.getChannelConfig(threadId)).autoThread ?? true,
+          replyInThread: await this.repliesInThread(threadId),
         }
       : undefined;
 
@@ -239,6 +242,18 @@ export class FeishuAdapter {
       });
       throw err;
     }
+  }
+
+  /** Streams replies through this adapter's client, placed as `send` places them. */
+  replyDelivery(): DeliveryTransport {
+    return feishuTransport({
+      client: this.channel.rawClient,
+      replyInThread: (chat) => this.repliesInThread(chat),
+    });
+  }
+
+  private async repliesInThread(chatId: string): Promise<boolean> {
+    return (await this.getChannelConfig(chatId)).autoThread ?? true;
   }
 
   onInbound(handler: (msg: ChannelMessage) => Promise<void>): void {
@@ -282,7 +297,9 @@ export class FeishuAdapter {
     // Only a delivered message waits on the name; a dropped one starts the lookup.
     const chatName = threadType === "group" ? this.observeGroup(m.chatId) : undefined;
 
-    if (threadType === "group") {
+    // A link code said in a group must void the code, so it skips the group
+    // filters. Admission voids it and keeps it from every agent.
+    if (threadType === "group" && !isLinkCodeMessage(text)) {
       const configRequest = isSettingsRequest(text);
       if (configRequest && m.mentionedBot) {
         await this.sendGroupConfigCard(m.chatId, m.messageId, m.senderId);

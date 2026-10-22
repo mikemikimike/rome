@@ -593,8 +593,15 @@
     {
       "idx": 85,
       "version": "6",
-      "when": 1792568814319,
-      "tag": "0085_outbox_send_from",
+      "when": 1792578730451,
+      "tag": "0085_connection_kind_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "6",
+      "when": 1792578731451,
+      "tag": "0086_outbox_send_from",
       "breakpoints": true
     }
   ]

@@ -1,4 +1,4 @@
-import type { PairingNotifier } from "../channels/pairing.js";
+import type { GuardianLinkCodes } from "../channels/guardian-link-code.js";
 import type { LoginUsageSink } from "../usage/recorder.js";
 import type { createNodeDevicesService } from "../lib/node-devices.js";
 import type { ActionEngine } from "../actions/engine.js";
@@ -76,16 +76,15 @@ export interface ApiConfig {
  * exception is `appsRoot`, a genuine config override rather than a service.
  */
 export interface ApiDeps {
-  /** Tells a paired account that the guardian resolved its request, on the
-   *  Connection the request arrived through (channels/pairing.ts). */
-  notifyPairingResolution: PairingNotifier;
   /** The channels this Rome has, by name. */
   channelsService: ChannelsService;
   chatSettings: ChatSettingsControl;
   actionEngine: ActionEngine;
-  actionLoader: Pick<ActionLoader, "get">;
+  actionLoader: Pick<ActionLoader, "get" | "getRegistryLoadFailures">;
   db: DrizzleDb;
   personMappingRepo: PersonMappingRepository;
+  /** The guardian's link code, shown in People (channels/guardian-link-code.ts). */
+  guardianLinkCodes: GuardianLinkCodes;
   /** Every channel Rome reads, each carrying its address book and what was said
    *  on it. WhatsApp and LinkedIn reach the API only through here — no route
    *  reads either store directly. */

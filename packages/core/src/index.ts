@@ -1,6 +1,6 @@
 import { createNodeDevicesService } from "./lib/node-devices.js";
-import { createPairingAdmission, notifyPairingResolution } from "./channels/pairing.js";
 import type { Admission } from "./channels/admission.js";
+import { createGuardianLinkAdmission, GuardianLinkCodes } from "./channels/guardian-link-code.js";
 import { createAgentsGuardianLink } from "./channels/agents-guardian.js";
 import { dirname, join } from "node:path";
 import { fork } from "node:child_process";
@@ -181,6 +181,7 @@ import { assertCoreRequiredAppsPacked, deriveCoreRequiredApps } from "./apps/cor
 import { installFirstPartyAppsAtBoot } from "./apps/boot-upgrade.js";
 import { createRomeCloudListingClient } from "./apps/rome-cloud-listing-client.js";
 import { createArtifactReferenceResolver } from "./apps/artifact-reference.js";
+import { createArtifactLoadFailureReporter } from "./apps/artifact-load-failure-reporter.js";
 import {
   ensureProfileDevAppsDirInitialized,
   getProfileAppsLockfilePath,
@@ -308,7 +309,7 @@ async function main() {
   // The WeChat app on its own desktop, opened from /desktop/wechat. It drives
   // the same client, and needs no connection.
   const wechatApp = wechatUserRuntime ? new WechatApp(wechatUserRuntime) : null;
-  const approvalsRepo = new ApprovalsRepository(db, personMappingRepo);
+  const approvalsRepo = new ApprovalsRepository(db);
   const settingsRepo = new SettingsRepository(db);
   const computerUse = new ComputerUseService(settingsRepo);
 
@@ -383,23 +384,25 @@ async function main() {
     onRemove: (tx, id) => channelRecords.vacate(tx, id),
   });
   const channelOf = recordedChannelOf(channelRecords, talks);
-  const pairingAdmission = createPairingAdmission({
-    approvalsRepo,
-    personMappingRepo,
-    talkGrants: (connectionKind) =>
-      connectionRegistry.getDescriptor(connectionKind)?.capabilities.talker?.needs ?? [],
-    registry: connectionRegistry,
-  });
   const linkAgentToGuardian = createAgentsGuardianLink({
     personMappingRepo,
     settingsRepo,
     channel: AGENTS_KIND,
   });
+  const guardianLinkCodes = new GuardianLinkCodes();
+  const linkCodeAdmission = createGuardianLinkAdmission({
+    codes: guardianLinkCodes,
+    personMappingRepo,
+    registry: connectionRegistry,
+  });
+  // Every sender is admitted: Rome never asks a sender to pair
+  // (docs/domains/people.md#stranger). Only the guardian's link code is taken
+  // out of the chat.
   const admit: Admission = async (connectionId, connectionKind, message) => {
     // Before the inbox resolves the sender, so the first message already
     // reads as the guardian's.
     if (connectionKind === AGENTS_KIND) await linkAgentToGuardian(message);
-    return pairingAdmission(connectionId, connectionKind, message);
+    return linkCodeAdmission(connectionId, connectionKind, message);
   };
   // How app actions — here and, over RPC, in workers — send and read on
   // channels by name. The channel list is built further down, and the connection kind
@@ -466,7 +469,7 @@ async function main() {
   const appStore = createAppStoreService({ appCatalog });
 
   // Subscribers ordered agentLoader → actionLoader → skillCatalog →
-  // actionRegistry → channelHook → runtimeStatus.
+  // artifactLoadFailures → actionRegistry → channelHook → runtimeStatus.
   const artifactIdentity = {
     legacyBindings: parseLegacyArtifactBindings(
       await settingsRepo.get(ARTIFACT_LEGACY_BINDINGS_SETTING),
@@ -506,6 +509,17 @@ async function main() {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  });
+  const artifactLoadFailureReporter = createArtifactLoadFailureReporter({
+    sources: [agentLoader, actionLoader, skillCatalog],
+    log: appsLog,
+  });
+  // Subscribes after the three loaders so it reads their reloaded failures.
+  // Boot replays one refresh per installed app, so the failure list grows an
+  // app at a time. The first report runs once the first-party apps converge.
+  let artifactLoadFailuresBooted = false;
+  appCatalog.subscribe(function artifactLoadFailureSubscriber(event) {
+    if (artifactLoadFailuresBooted) artifactLoadFailureReporter.report(event.appId);
   });
   appCatalog.subscribe(async function artifactLegacyBindingsSubscriber() {
     await settingsRepo.set(ARTIFACT_LEGACY_BINDINGS_SETTING, artifactIdentity.legacyBindings);
@@ -572,6 +586,8 @@ async function main() {
     actions: Object.keys(artifactIdentity.legacyBindings.action).length,
     skills: Object.keys(artifactIdentity.legacyBindings.skill).length,
   });
+  artifactLoadFailuresBooted = true;
+  artifactLoadFailureReporter.report("boot");
   const sessionManager = new SessionManager(sessionsRepo, artifactIdentity);
 
   // Set once the email adapter is created (further down). Lets the main-agent
@@ -1460,6 +1476,7 @@ async function main() {
     hasAgent: (name) => agentLoader.has(name),
     hasRegisteredAction: (name) => actionRegistry.has(name),
     isExplicitAction: (name) => actionRegistry.isExplicit(name),
+    validateActionArgs: (name, args) => actionRegistry.validateArgs(name, args),
     // Same allow-list resolution as the agent session's tool gate.
     hasAction: (agentName, actionName) => agentRunner.hasAction(agentName, actionName),
     backendTurnRunner,
@@ -1580,12 +1597,12 @@ async function main() {
         }
       },
       nodeDevices,
-      notifyPairingResolution: (approval) => notifyPairingResolution(connectionRegistry, approval),
       channelsService,
       chatSettings,
       actionEngine,
       actionLoader,
       personMappingRepo,
+      guardianLinkCodes,
       outboxRepo,
       channels,
       channelOfLink,

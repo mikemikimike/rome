@@ -75,7 +75,12 @@
       "accessExpired": "访问已过期 — 重新连接以继续使用",
       "reconnect": "重新连接",
       "reconnecting": "正在重新连接账户…",
-      "resumePending": "你已开始连接 {{label}} 但尚未完成。请在 {{label}} 上继续，或取消。"
+      "resumePending": "你已开始连接 {{label}} 但尚未完成。请在 {{label}} 上继续，或取消。",
+      "shopify": {
+        "connect": "在 Shopify 中连接",
+        "ownApp": "使用你自己的 Shopify 应用",
+        "installNote": "Shopify 会在新标签页中打开，你在那里选择店铺并授权 Rome OS。"
+      }
     },
     "composio": {
       "unavailable": "此主机上无法使用 Composio。"
@@ -720,8 +725,8 @@
       "description": "仍在试用的功能。每项默认关闭，之后可能调整或移除。",
       "replyStreaming": {
         "title": "回复流式输出",
-        "description": "适用于守护者在 Telegram 的私聊。回复以纯文本显示。回复中途失败时不会重发，可能停在未完成的状态。",
-        "toggleLabel": "在 Telegram 中流式输出回复"
+        "description": "适用于守护者在 Telegram 和飞书的私聊。在 Telegram 中，回复以纯文本显示。回复中途失败时不会重发，可能停在未完成的状态。",
+        "toggleLabel": "边生成边发送回复"
       }
     },
     "developerSettings": {
@@ -910,9 +915,7 @@
   },
   "devices": {
     "title": "设备",
-    "description": "Rome 账户关联的设备。每 15 秒刷新一次连接检查。",
-    "refresh": "刷新",
-    "loading": "正在检查设备连接…",
+    "description": "Rome 账户关联的设备。",
     "loadFailed": "设备加载失败",
     "connectionLabel": "Rome 连接",
     "connection": {
@@ -928,8 +931,8 @@
       "incompatible": "需要重启"
     },
     "help": {
-      "not_running": "启动此 Rome 实例上的服务后，即可检查已关联的电脑。刷新只检查状态，不会启动服务。",
-      "unavailable": "暂时无法获取设备状态，请刷新重试。",
+      "not_running": "启动此 Rome 实例上的服务后，即可检查已关联的电脑。",
+      "unavailable": "暂时无法获取设备状态，页面会自动重试。",
       "not_configured": "尚未配置设备访问。将此 Rome 实例关联到 Rome Cloud 后即可准备访问。",
       "incompatible": "在 Rome 实例上先运行 rome-node daemon stop，再运行 rome-node daemon start。这会重启共享服务，并中断正在进行的设备请求。"
     },

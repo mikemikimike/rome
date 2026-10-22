@@ -1,4 +1,3 @@
-import { notifyPairingResolution } from "../channels/pairing.js";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
@@ -52,6 +51,7 @@ import type { Talker } from "../connections/types.js";
 import type { ConnectionRegistry } from "../connections/registry.js";
 import { SessionsRepository } from "../db/repositories/sessions.js";
 import { PersonMappingRepository } from "../db/repositories/person-mapping.js";
+import { GuardianLinkCodes } from "../channels/guardian-link-code.js";
 import { ChannelRecordsRepository } from "../db/repositories/channel-records.js";
 import { LinkedInStoreRepository } from "../db/repositories/linkedin-store.js";
 import { OutboxRepository } from "../db/repositories/outbox.js";
@@ -167,10 +167,7 @@ export function createActionEngineRepos(
 ): ActionEngineRepositories {
   return {
     executions: new ActionExecutionsRepository(db),
-    approvals: new ApprovalsRepository(
-      db,
-      new PersonMappingRepository(db, recordedConnectionKindOf(db)),
-    ),
+    approvals: new ApprovalsRepository(db),
     journal: new ExecutionJournalRepository(db),
   };
 }
@@ -550,7 +547,7 @@ export async function buildTestDeps(
   const connections = createTestConnections(transports);
   const channels = testChannels({ db, whatsAppAccounts, linkedInAccounts }, connections);
   const accountNames = createAccountNames({ channels, sentinelLogRepo });
-  const approvalsRepo = new ApprovalsRepository(db, personMappingRepo);
+  const approvalsRepo = new ApprovalsRepository(db);
   const settingsRepo = new SettingsRepository(db);
   // A private env object per deps bag: route tests exercise apply/remove
   // without touching the real process.env of the test runner.
@@ -713,7 +710,6 @@ export async function buildTestDeps(
 
   return {
     connections,
-    notifyPairingResolution: (approval) => notifyPairingResolution(connections, approval),
     channelsService,
     chatSettings: emptyChatSettings,
     actionEngine,
@@ -721,6 +717,7 @@ export async function buildTestDeps(
     db,
     sessionsRepo,
     personMappingRepo,
+    guardianLinkCodes: new GuardianLinkCodes(),
     outboxRepo,
     whatsAppStoreRepo,
     whatsAppAccounts,
