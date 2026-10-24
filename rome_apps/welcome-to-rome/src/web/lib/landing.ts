@@ -45,7 +45,9 @@ function readAgentName(value: unknown): string {
 }
 
 function isNode(value: unknown): value is WelcomeNode {
-  return typeof value === "string" && (value === "greet" || value in STEP_INDEX_BY_NODE);
+  return (
+    typeof value === "string" && (value === "greet" || Object.hasOwn(STEP_INDEX_BY_NODE, value))
+  );
 }
 
 function readProgress(value: unknown): LandingProgress | null {

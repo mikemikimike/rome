@@ -28,6 +28,17 @@ describe("loadLanding", () => {
     expect(result.landing).toEqual({ kind: "error" });
   });
 
+  it("shows an error for a node it does not know, inherited object keys included", async () => {
+    for (const node of ["await_something_new", "toString", "constructor"]) {
+      const result = await loadLanding(
+        state({ node, aiConnected: null, sessionId: null }),
+        rs.fn(),
+      );
+
+      expect(result.landing).toEqual({ kind: "error" });
+    }
+  });
+
   it("shows a first run only for a run at greet", async () => {
     const result = await loadLanding(
       state({ node: "greet", aiConnected: null, sessionId: null }),
