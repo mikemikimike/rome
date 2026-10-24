@@ -33,6 +33,14 @@ if [ -n "${ROME_DEV_SLUG:-}" ]; then
     echo "worktree-slug: ROME_DEV_SLUG=\"$ROME_DEV_SLUG\" has no letters or digits, so it names no stack." >&2
     exit 1
   fi
+  # The shared singletons' compose projects (infra/traefik, infra/observability).
+  # A stack under one of these names would merge into it.
+  case "$slug" in
+    rome-traefik | rome-obs)
+      echo "worktree-slug: ROME_DEV_SLUG=\"$ROME_DEV_SLUG\" is the name of a shared Rome stack. Pick another." >&2
+      exit 1
+      ;;
+  esac
   printf '%s\n' "$slug"
   exit 0
 fi

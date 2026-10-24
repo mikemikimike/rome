@@ -171,8 +171,9 @@ const USAGE = `Usage: pnpm gc:worktrees [-y|--yes] [--include-locked] [--force]
 // Stack ownership. A worktree's stack is the one named after its directory.
 // It is left alone when it belongs to another checkout (gc-stack-guard.ts).
 
-/** The compose working directory of each container in the stack `slug`. */
-function stackOwnerDirs(slug: string): string[] {
+/** The compose working directory of each container in the stack `slug`, or
+ *  null when Docker could not be asked. */
+function stackOwnerDirs(slug: string): string[] | null {
   const r = run("docker", [
     "ps",
     "-a",
@@ -181,7 +182,7 @@ function stackOwnerDirs(slug: string): string[] {
     "--format",
     '{{.Label "com.docker.compose.project.working_dir"}}',
   ]);
-  if (!r.ok) return [];
+  if (!r.ok) return null;
   return [
     ...new Set(
       r.stdout

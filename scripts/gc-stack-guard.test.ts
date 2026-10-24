@@ -6,7 +6,12 @@ describe("mayTearDownStack", () => {
 
   it("keeps the stack this shell pins, even for a worktree of the same name", () => {
     expect(
-      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: "shared", ownerDirs: [] }),
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: "shared",
+        ownerDirs: [worktree],
+      }),
     ).toBe(false);
   });
 
@@ -32,10 +37,16 @@ describe("mayTearDownStack", () => {
     ).toBe(true);
   });
 
-  it("tears down when no container names an owner", () => {
+  it("keeps the stack when Docker cannot say who owns it", () => {
     expect(
-      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: "other", ownerDirs: [] }),
-    ).toBe(true);
+      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: null, ownerDirs: null }),
+    ).toBe(false);
+  });
+
+  it("keeps the stack when no container proves an owner", () => {
+    expect(
+      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: null, ownerDirs: [] }),
+    ).toBe(false);
   });
 });
 

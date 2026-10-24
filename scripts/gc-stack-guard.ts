@@ -38,17 +38,22 @@ function samePath(a: string, b: string): boolean {
 
 /**
  * Whether removing the worktree at `worktreePath` may also remove the stack
- * named `slug` and its home dir. Not when this shell pins that slug, and not
- * when the stack's containers were started from another checkout.
+ * named `slug` and its home dir. Only when the stack's containers prove this
+ * worktree started it, and this shell does not pin that slug.
+ *
  * `ownerDirs` is the compose working directory of each of the stack's
- * containers, empty when it has none.
+ * containers, or null when Docker could not be asked. No answer and no
+ * containers both prove nothing, so both keep the stack: deleting a home dir
+ * that belongs to another checkout loses its database, while keeping one
+ * only leaves a directory to remove by hand.
  */
 export function mayTearDownStack(input: {
   slug: string;
   worktreePath: string;
   pinned: string | null;
-  ownerDirs: readonly string[];
+  ownerDirs: readonly string[] | null;
 }): boolean {
   if (input.pinned !== null && input.slug === input.pinned) return false;
+  if (input.ownerDirs === null || input.ownerDirs.length === 0) return false;
   return input.ownerDirs.every((dir) => samePath(dir, input.worktreePath));
 }

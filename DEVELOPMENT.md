@@ -164,8 +164,12 @@ same stack, which undoes the isolation above.
 
 Every branch then shares that stack's data, including the database. A
 migration from one branch stays applied after you switch to a branch that does
-not have it. `pnpm gc:worktrees` leaves a stack alone when it was started from
-another checkout or when `ROME_DEV_SLUG` pins its name.
+not have it.
+
+`pnpm gc:worktrees` removes a worktree's stack only when its containers show
+that worktree started it. It keeps a stack started elsewhere, one with no
+containers left, and one whose owner Docker cannot report. Remove a kept stack
+by hand with the reset commands above.
 
 **Gotcha:** bare-metal `pnpm start` (host Node, no container) still
 writes to `~/.rome/<profile>/`, so it does *not* share state with
