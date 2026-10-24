@@ -1,6 +1,7 @@
 import type { AgentEvent } from "@rome-os/app-runtime";
+import { isAbsolute, relative, sep } from "node:path";
 import type { RunsRepository } from "../db/repositories/runs.js";
-import { changesFromToolUse, type FileChange } from "./changes.js";
+import { changesFromToolUse, pathsFromToolUse, type FileChange } from "./changes.js";
 import { HEARTBEAT_MS } from "./run-view.js";
 
 type RunOutcome = Parameters<RunsRepository["finish"]>[1];
@@ -22,6 +23,9 @@ function resultText(output: unknown): string {
  * result, without the error flag, so its output has to be read.
  */
 function reportsActionError(output: unknown): boolean {
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    if ((output as Record<string, unknown>).status === "error") return true;
+  }
   const text = resultText(output).trim();
   if (!text.startsWith("{")) return false;
   try {
@@ -41,20 +45,30 @@ function reportsActionError(output: unknown): boolean {
  * status wins, so the stream has to be read to its end before classifying.
  */
 export class RunRecorder {
-  private readonly pending = new Map<string, FileChange[]>();
+  private readonly pending = new Map<
+    string,
+    { changes: FileChange[]; knownPaths: string[]; appManagementCreate: boolean }
+  >();
+  private readonly knownAppPaths = new Set<string>();
   summary = "";
   error: string | null = null;
   private interrupted = false;
 
   /**
-   * @param ignoredDir Changes under it are not recorded: the action records
-   *   the authoritative version of what the agent writes there.
+   * @param ignoredDir Changes under it are not recorded directly. The action
+   *   records the final filesystem version and uses these paths as provenance
+   *   for that final diff.
    */
   constructor(
-    private readonly repo: RunsRepository,
+    private readonly repo: Pick<RunsRepository, "addChanges">,
     private readonly runId: string,
     private readonly ignoredDir?: string,
   ) {}
+
+  /** Paths the practice agent demonstrably targeted under the shared apps root. */
+  knownPaths(): ReadonlySet<string> {
+    return this.knownAppPaths;
+  }
 
   observe(event: AgentEvent): void {
     if (event.type === "result") {
@@ -70,19 +84,43 @@ export class RunRecorder {
       return;
     }
     if (event.type === "tool_use") {
-      const ignored = this.ignoredDir ? `${this.ignoredDir}/` : null;
-      const changes = changesFromToolUse(event.tool, event.input).filter(
-        (change) => !ignored || !change.path.startsWith(ignored),
+      const allChanges = changesFromToolUse(event.tool, event.input);
+      const knownPaths = [
+        ...pathsFromToolUse(event.tool, event.input),
+        ...allChanges.map((change) => change.path),
+      ].filter((path) => this.ignoredDir !== undefined && isWithin(path, this.ignoredDir));
+      const actionPaths = this.ignoredDir ? appManagementPaths(event.input) : [];
+      const appManagementCreate =
+        this.ignoredDir !== undefined && appManagementArgs(event.input)?.op === "create";
+      const changes = this.ignoredDir
+        ? allChanges.filter((change) => !isWithin(change.path, this.ignoredDir!))
+        : allChanges;
+      const pendingKnownPaths = [...knownPaths, ...actionPaths].filter((path) =>
+        this.ignoredDir ? isWithin(path, this.ignoredDir) : false,
       );
-      if (changes.length > 0) this.pending.set(event.id, changes);
+      if (changes.length > 0 || pendingKnownPaths.length > 0 || appManagementCreate) {
+        this.pending.set(event.id, {
+          changes,
+          knownPaths: pendingKnownPaths,
+          appManagementCreate,
+        });
+      }
       return;
     }
     if (event.type === "tool_result") {
-      const changes = this.pending.get(event.toolUseId);
-      if (!changes) return;
+      const pending = this.pending.get(event.toolUseId);
+      if (!pending) return;
       this.pending.delete(event.toolUseId);
       if (event.isError || reportsActionError(event.output)) return;
-      this.repo.addChanges(this.runId, changes);
+      for (const path of [
+        ...pending.knownPaths,
+        ...(pending.appManagementCreate ? appManagementResultPaths(event.output) : []),
+      ]) {
+        if (this.ignoredDir && isWithin(path, this.ignoredDir)) this.knownAppPaths.add(path);
+      }
+      if (pending.changes.length > 0) {
+        this.repo.addChanges(this.runId, pending.changes);
+      }
     }
   }
 
@@ -90,6 +128,59 @@ export class RunRecorder {
     if (this.interrupted) return { status: "interrupted", summary: this.summary };
     if (this.error !== null) return { status: "failed", error: this.error };
     return { status: "completed", summary: this.summary };
+  }
+}
+
+function isWithin(path: string, root: string): boolean {
+  const fromRoot = relative(root, path);
+  return (
+    fromRoot === "" ||
+    (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`))
+  );
+}
+
+function appManagementArgs(input: unknown): Record<string, unknown> | null {
+  if (!input || typeof input !== "object") return null;
+  const record = input as Record<string, unknown>;
+  const actionName = record.action_name;
+  if (typeof actionName !== "string" || actionName.split(":").at(-1) !== "app_management") {
+    return null;
+  }
+  const args = record.json_args;
+  return args && typeof args === "object" && !Array.isArray(args)
+    ? (args as Record<string, unknown>)
+    : null;
+}
+
+/** A template create call's requested authoring root. */
+function appManagementPaths(input: unknown): string[] {
+  const args = appManagementArgs(input);
+  if (!args || typeof args.op !== "string") return [];
+  if (args.op === "create" && typeof args.rootPath === "string") return [args.rootPath];
+  return [];
+}
+
+function appManagementResultPaths(output: unknown): string[] {
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    const envelope = output as Record<string, unknown>;
+    if (envelope.status !== "ok") return [];
+    const data = envelope.data;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const rootPath = (data as Record<string, unknown>).rootPath;
+      if (typeof rootPath === "string") return [rootPath];
+    }
+  }
+  const text = resultText(output).trim();
+  if (!text.startsWith("{")) return [];
+  try {
+    const parsed = JSON.parse(text) as { status?: unknown; data?: unknown };
+    if (parsed.status !== "ok") return [];
+    const data = parsed.data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+    const rootPath = (data as Record<string, unknown>).rootPath;
+    return typeof rootPath === "string" ? [rootPath] : [];
+  } catch {
+    return [];
   }
 }
 

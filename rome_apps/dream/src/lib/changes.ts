@@ -14,6 +14,9 @@
 
 export type ChangeOp = "write" | "edit";
 
+/** How a change was attributed when it was captured. */
+export type ChangeAttribution = "practice" | "unattributed" | "mixed";
+
 export interface FileChange {
   op: ChangeOp;
   path: string;
@@ -27,6 +30,8 @@ export interface FileChange {
    */
   previous: string | null;
   truncated: boolean;
+  /** Provenance for filesystem changes; older agent records may omit it. */
+  attribution?: ChangeAttribution | null;
 }
 
 /** `.env` files can hold secrets, so only their path is recorded. `.env.example` is source. */
@@ -34,7 +39,7 @@ const SECRET_FILE = /(?:^|\/)\.env(?!\.example$)[^/]*$/;
 export const SECRET_PLACEHOLDER = "(contents not recorded)";
 
 export function isSecretFile(path: string): boolean {
-  return SECRET_FILE.test(path);
+  return SECRET_FILE.test(path.replaceAll("\\", "/"));
 }
 
 /** Caps one stored change, so a full-file rewrite of a large memory file
@@ -158,6 +163,38 @@ function changesFromFileChange(record: Record<string, unknown>): FileChange[] {
         return [];
     }
   });
+}
+
+/**
+ * Every path a file tool targeted, including deletes and the old side of a
+ * rename. The change renderer intentionally omits deleted files, but the
+ * practice app diff still needs these paths for authorship attribution.
+ */
+export function pathsFromToolUse(tool: string, input: unknown): string[] {
+  if (!input || typeof input !== "object") return [];
+  const memoryWrite = memoryFileCall(tool, input as Record<string, unknown>);
+  if (memoryWrite) return pathsFromToolUse(memoryWrite.tool, memoryWrite.input);
+
+  const record = input as Record<string, unknown>;
+  if (record.type === "fileChange") {
+    if (!Array.isArray(record.changes)) return [];
+    return record.changes.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const itemRecord = item as Record<string, unknown>;
+      const path = str(itemRecord.path);
+      if (!path) return [];
+      const kind = itemRecord.kind;
+      const kindRecord =
+        kind && typeof kind === "object" ? (kind as Record<string, unknown>) : null;
+      const kindType = kindRecord ? str(kindRecord.type) : null;
+      if (!kindType || !["add", "update", "delete"].includes(kindType)) return [];
+      const movePath = kindType === "update" ? str(kindRecord?.move_path) : null;
+      return movePath ? [path, movePath] : [path];
+    });
+  }
+
+  const path = str(record.file_path);
+  return path && ["Write", "Edit", "MultiEdit"].includes(tool) ? [path] : [];
 }
 
 /**
@@ -319,6 +356,8 @@ function shortPath(path: string): string {
 export interface ChangedFile extends ClassifiedPath {
   path: string;
   changes: Array<Omit<FileChange, "path">>;
+  /** Combined provenance when a file has changes from more than one source. */
+  attribution: ChangeAttribution | null;
 }
 
 /** Groups changes by file, in the order each file was first touched. */
@@ -327,10 +366,14 @@ export function groupByFile(changes: FileChange[]): ChangedFile[] {
   for (const { path, ...change } of changes) {
     let file = files.get(path);
     if (!file) {
-      file = { path, ...classifyPath(path), changes: [] };
+      file = { path, ...classifyPath(path), changes: [], attribution: null };
       files.set(path, file);
     }
     file.changes.push(change);
+    if (change.attribution) {
+      if (file.attribution === null) file.attribution = change.attribution;
+      else if (file.attribution !== change.attribution) file.attribution = "mixed";
+    }
   }
   return [...files.values()];
 }

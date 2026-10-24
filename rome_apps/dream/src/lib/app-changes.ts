@@ -11,8 +11,14 @@
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
-import { dirname, extname, join, relative } from "node:path";
-import { type FileChange, isSecretFile, MAX_CHANGE_CHARS, SECRET_PLACEHOLDER } from "./changes.js";
+import { dirname, extname, isAbsolute, join, relative, sep } from "node:path";
+import {
+  type ChangeAttribution,
+  type FileChange,
+  isSecretFile,
+  MAX_CHANGE_CHARS,
+  SECRET_PLACEHOLDER,
+} from "./changes.js";
 
 /** Build output, dependencies, and hidden folders (git, dream staging) are not source. Hidden files are. */
 const SKIPPED_DIRS = new Set(["node_modules", "dist", "build", "coverage"]);
@@ -92,6 +98,39 @@ export async function snapshotApps(dir: string, copyDir: string): Promise<AppsSn
  * authoritative record of a run's app changes: a file the agent also touched
  * with `Edit` shows its final state here too.
  */
+function isWithin(path: string, root: string): boolean {
+  const fromRoot = relative(root, path);
+  return (
+    fromRoot === "" ||
+    (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`))
+  );
+}
+
+export interface AppChangeProvenance {
+  practicePaths: ReadonlySet<string>;
+  concurrentWriterPaths: ReadonlySet<string>;
+  concurrentWriterPathUnknown: boolean;
+}
+
+function attributionFor(path: string, provenance: AppChangeProvenance): ChangeAttribution {
+  if (provenance.concurrentWriterPathUnknown) return "unattributed";
+
+  const practice = [...provenance.practicePaths].some((root) => isWithin(path, root));
+  const concurrent = [...provenance.concurrentWriterPaths].some((root) => isWithin(path, root));
+  if (practice && concurrent) return "mixed";
+  return practice ? "practice" : "unattributed";
+}
+
+export function attributeAppChanges(
+  changes: FileChange[],
+  provenance: AppChangeProvenance,
+): FileChange[] {
+  return changes.map((change) => ({
+    ...change,
+    attribution: attributionFor(change.path, provenance),
+  }));
+}
+
 export async function appChangesSince(dir: string, before: AppsSnapshot): Promise<FileChange[]> {
   const after = await signatures(dir);
   const changes: FileChange[] = [];

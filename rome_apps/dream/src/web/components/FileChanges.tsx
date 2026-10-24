@@ -4,7 +4,7 @@ import { navigateRome } from "@rome-os/app-web-sdk";
 import { Badge } from "@rome-os/ui/badge";
 import { Button } from "@rome-os/ui/button";
 import { cn } from "@rome-os/ui/cn";
-import type { ChangedFile } from "../lib/api";
+import type { ChangeAttribution, ChangedFile } from "../lib/api";
 import { foldContext, lineDiff, type DiffRow } from "../lib/diff";
 
 type Change = ChangedFile["changes"][number];
@@ -83,6 +83,28 @@ function changeLabel(file: ChangedFile): string {
   return edits === 0 ? "Written" : `Written, ${edits === 1 ? "1 edit" : `${edits} edits`}`;
 }
 
+function attributionLabel(attribution: ChangeAttribution): string {
+  switch (attribution) {
+    case "practice":
+      return "Practice agent";
+    case "unattributed":
+      return "Unattributed change";
+    case "mixed":
+      return "Mixed authorship";
+  }
+}
+
+function attributionVariant(attribution: ChangeAttribution): "info" | "warning" | "brand" {
+  switch (attribution) {
+    case "practice":
+      return "info";
+    case "unattributed":
+      return "warning";
+    case "mixed":
+      return "brand";
+  }
+}
+
 export function OpenInMemoryButton({ file }: { file: string }) {
   return (
     <Button size="sm" variant="ghost" onClick={() => navigateRome({ path: "memory", file })}>
@@ -125,7 +147,16 @@ export function FileChangeCard({ file }: { file: ChangedFile }) {
   return (
     <FilePanel
       title={<span className="truncate font-mono text-aux text-foreground">{file.label}</span>}
-      meta={<Badge variant="muted">{changeLabel(file)}</Badge>}
+      meta={
+        <div className="flex shrink-0 items-center gap-1">
+          <Badge variant="muted">{changeLabel(file)}</Badge>
+          {file.attribution ? (
+            <Badge variant={attributionVariant(file.attribution)}>
+              {attributionLabel(file.attribution)}
+            </Badge>
+          ) : null}
+        </div>
+      }
       action={file.memoryFile ? <OpenInMemoryButton file={file.memoryFile} /> : null}
     >
       <div className="divide-y divide-border-subtle">

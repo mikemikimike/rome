@@ -1,3 +1,4 @@
+import { join, sep } from "node:path";
 import { and, asc, desc, eq, gt, inArray, isNull, max, ne, sql } from "drizzle-orm";
 import type { AppDbContext, DrizzleDb } from "@rome-os/app-runtime";
 import type { FileChange } from "../../lib/changes.js";
@@ -165,6 +166,7 @@ export class RunsRepository {
               content: change.content,
               previous: change.previous,
               truncated: change.truncated,
+              attribution: change.attribution ?? null,
               createdAt,
             })),
           )
@@ -210,11 +212,12 @@ export class RunsRepository {
         content: runChanges.content,
         previous: runChanges.previous,
         truncated: runChanges.truncated,
+        attribution: runChanges.attribution,
       })
       .from(runChanges)
       .where(eq(runChanges.runId, runId))
       .orderBy(asc(runChanges.seq))
-      .all() as FileChange[];
+      .all();
   }
 
   /**
@@ -238,7 +241,7 @@ export class RunsRepository {
           ne(runs.id, runId),
           eq(runChanges.op, "edit"),
           isNull(runChanges.previous),
-          sql`substr(${runChanges.path}, 1, ${memoryDir.length + 9}) = ${`${memoryDir}/journal/`}`,
+          sql`substr(${runChanges.path}, 1, ${memoryDir.length + 9}) = ${`${join(memoryDir, "journal")}${sep}`}`,
         ),
       )
       .orderBy(desc(runs.startedAt), desc(runChanges.seq))

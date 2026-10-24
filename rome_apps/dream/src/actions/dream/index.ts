@@ -9,10 +9,19 @@ import {
   type AgentRunnerInterface,
   type AppActionRuntimeDeps,
 } from "@rome-os/app-runtime";
+import {
+  AppManagementExecutionsRepository,
+  type AppManagementExecution,
+} from "../../db/repositories/app-management-executions.js";
 import { createRunsRepository } from "../../db/repositories/runs.js";
 import { hasChatSince } from "../../lib/chat-activity.js";
 import { DREAM_WINDOW_HOURS } from "../../lib/dream-routine.js";
-import { appChangesSince, snapshotApps } from "../../lib/app-changes.js";
+import {
+  appChangesSince,
+  attributeAppChanges,
+  type AppChangeProvenance,
+  snapshotApps,
+} from "../../lib/app-changes.js";
 import { profileMemoryDir } from "../../lib/memory-dir.js";
 import { type FileChange, MAX_CHANGE_CHARS } from "../../lib/changes.js";
 import { RunRecorder, keepRunAlive } from "../../lib/run-recorder.js";
@@ -67,6 +76,49 @@ const MAX_NOTES_CHARS = 4_000;
 
 /** How many earlier runs' practice notes the practice agent sees. */
 const EARLIER_PRACTICE_RUNS = 10;
+
+function isPracticeInitiator(initiator: string | null): boolean {
+  return initiator?.startsWith("agent:") === true && /(?:^|[/:])dream-practice$/.test(initiator);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readExecutionArgs(args: unknown): Record<string, unknown> | null {
+  if (isRecord(args)) return args;
+  if (typeof args !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(args);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function appChangeProvenance(
+  practicePaths: ReadonlySet<string>,
+  executions: AppManagementExecution[],
+): AppChangeProvenance {
+  const concurrentWriterPaths = new Set<string>();
+  let concurrentWriterPathUnknown = false;
+
+  for (const execution of executions) {
+    const args = readExecutionArgs(execution.args);
+    if (args?.op !== "create") continue;
+
+    const practice = isPracticeInitiator(execution.initiator);
+    if (practice && execution.status === "success") continue;
+
+    if (typeof args.rootPath === "string") {
+      concurrentWriterPaths.add(args.rootPath);
+    } else {
+      concurrentWriterPathUnknown = true;
+    }
+  }
+
+  return { practicePaths, concurrentWriterPaths, concurrentWriterPathUnknown };
+}
 
 /**
  * Appends the practice agent's notes to the journal, and records them on the
@@ -237,6 +289,7 @@ export function createAction(config: ActionConfig, deps: AppActionRuntimeDeps<Dr
         // carrier exists so a fresh carrier does not show as an app change.
         let before: Map<string, Buffer>;
         let appsBefore: Awaited<ReturnType<typeof snapshotApps>>;
+        let appsCaptureStartedAt: number;
         try {
           await ensureUserSkillsCarrier(carrierDir);
           await removeStaleRunFolders(stagingParent(carrierDir));
@@ -244,6 +297,7 @@ export function createAction(config: ActionConfig, deps: AppActionRuntimeDeps<Dr
           staging = await stageCarrierSkills(carrierDir);
           before = await snapshotCarrierSkills(staging);
           appsCopy = await mkdtemp(join(tmpdir(), APP_SNAPSHOT_PREFIX));
+          appsCaptureStartedAt = Date.now();
           appsBefore = await snapshotApps(appsDir, appsCopy);
         } catch (err) {
           const error = `Could not prepare the practice run: ${err instanceof Error ? err.message : String(err)}`;
@@ -282,10 +336,35 @@ export function createAction(config: ActionConfig, deps: AppActionRuntimeDeps<Dr
           );
         } finally {
           // App changes are live once made, so record them even from a run
-          // that failed, for the guardian to review. A failure here must not
-          // hide the run's outcome or leave it running.
+          // that failed. Action records identify concurrent app scaffolds;
+          // other changed files remain unattributed unless practice touched them.
           try {
-            runs.addChanges(runId, await appChangesSince(appsDir, appsBefore));
+            const changes = await appChangesSince(appsDir, appsBefore);
+            const captureEndedAt = Date.now();
+            let provenance: AppChangeProvenance = {
+              practicePaths: practiceRecorder.knownPaths(),
+              concurrentWriterPaths: new Set(),
+              concurrentWriterPathUnknown: false,
+            };
+            if (changes.length > 0) {
+              try {
+                const executions = new AppManagementExecutionsRepository(
+                  appContext.db,
+                ).duringCapture(new Date(appsCaptureStartedAt), new Date(captureEndedAt));
+                provenance = appChangeProvenance(practiceRecorder.knownPaths(), executions);
+              } catch (err) {
+                log.error("dream could not inspect concurrent app writers", {
+                  error: String(err),
+                  runId,
+                });
+                provenance = {
+                  practicePaths: new Set(),
+                  concurrentWriterPaths: new Set(),
+                  concurrentWriterPathUnknown: true,
+                };
+              }
+            }
+            runs.addChanges(runId, attributeAppChanges(changes, provenance));
             await savePracticeNotes(notesPath, journalPath, runs, runId);
           } catch (err) {
             log.error("dream failed to record practice changes", { error: String(err), runId });

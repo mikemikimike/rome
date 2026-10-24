@@ -1,8 +1,23 @@
 import { describe, expect, it } from "@rstest/core";
-import { MAX_CHANGE_CHARS, changesFromToolUse, classifyPath, groupByFile } from "./changes.js";
+import {
+  MAX_CHANGE_CHARS,
+  changesFromToolUse,
+  classifyPath,
+  groupByFile,
+  isSecretFile,
+  pathsFromToolUse,
+} from "./changes.js";
 import { lineDiff } from "../web/lib/diff.js";
 
 const MEMORY = "/home/rome/.rome/default/memory";
+
+describe("isSecretFile", () => {
+  it("recognizes secret files with POSIX and Windows separators", () => {
+    expect(isSecretFile("/apps/notes/.env")).toBe(true);
+    expect(isSecretFile("C:\\apps\\notes\\.env.local")).toBe(true);
+    expect(isSecretFile("C:\\apps\\notes\\.env.example")).toBe(false);
+  });
+});
 
 describe("changesFromToolUse", () => {
   it("records a Write as the whole file", () => {
@@ -51,6 +66,24 @@ describe("changesFromToolUse", () => {
     });
     expect(change?.content.length).toBe(MAX_CHANGE_CHARS);
     expect(change?.truncated).toBe(true);
+  });
+});
+
+describe("pathsFromToolUse", () => {
+  it("keeps deleted and renamed paths for attribution", () => {
+    expect(
+      pathsFromToolUse("Edit", {
+        type: "fileChange",
+        changes: [
+          { path: "/apps/notes/src/gone.ts", kind: { type: "delete" }, diff: "-gone\n" },
+          {
+            path: "/apps/notes/src/old.ts",
+            kind: { type: "update", move_path: "/apps/notes/src/new.ts" },
+            diff: "@@ -1 +1 @@\n-old\n+new\n",
+          },
+        ],
+      }),
+    ).toEqual(["/apps/notes/src/gone.ts", "/apps/notes/src/old.ts", "/apps/notes/src/new.ts"]);
   });
 });
 
@@ -306,5 +339,29 @@ describe("groupByFile", () => {
       ["memory", 2],
       ["journal", 1],
     ]);
+  });
+
+  it("marks a file mixed when records disagree on authorship", () => {
+    const path = "/apps/notes/src/index.ts";
+    const files = groupByFile([
+      {
+        op: "edit",
+        path,
+        content: "practice",
+        previous: "before",
+        truncated: false,
+        attribution: "practice",
+      },
+      {
+        op: "edit",
+        path,
+        content: "concurrent",
+        previous: "practice",
+        truncated: false,
+        attribution: "unattributed",
+      },
+    ]);
+
+    expect(files).toMatchObject([{ path, attribution: "mixed", changes: [{}, {}] }]);
   });
 });
