@@ -60,6 +60,15 @@ describe("dev-stack-owner-check.sh", () => {
     expect(check(null).status).toBe(0);
   });
 
+  it("refuses an unpinned start of a stack another checkout pinned", () => {
+    writeFileSync(join(home, OWNER_FILE), `${other}\npinned\n`);
+
+    const r = check(null);
+
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(other);
+  });
+
   it("lets a stack start when its recorded owner no longer exists", () => {
     writeFileSync(join(home, OWNER_FILE), `${join(root, "removed-worktree")}\n`);
 

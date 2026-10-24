@@ -105,6 +105,21 @@ describe("mayTearDownStack with an owner file", () => {
   });
 });
 
+describe("mayTearDownStack with Docker unreachable", () => {
+  it("keeps a stack even when its owner file names this worktree", () => {
+    const worktree = "/src/rome-worktrees/shared";
+    expect(
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: worktree,
+        ownerDirs: null,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("pinnedSlug", () => {
   it("applies the slug rule, and pins nothing when it is unset or sanitizes to empty", () => {
     expect(pinnedSlug({ ROME_DEV_SLUG: "Eric Dev/1" })).toBe("eric-dev-1");

@@ -181,7 +181,9 @@ let warnedDockerUnreachable = false;
 function stackOwner(slug: string): string | null {
   try {
     return (
-      readFileSync(join(homedir(), ".rome-worktrees", slug, OWNER_FILE), "utf8").trim() || null
+      readFileSync(join(homedir(), ".rome-worktrees", slug, OWNER_FILE), "utf8")
+        .split("\n")[0]
+        .trim() || null
     );
   } catch {
     return null;
@@ -203,7 +205,7 @@ function stackOwnerDirs(slug: string): string[] | null {
     if (!warnedDockerUnreachable) {
       warnedDockerUnreachable = true;
       console.warn(
-        "docker is unreachable, so stacks without an owner file and their home dirs are kept. Run gc again once Docker is up.",
+        "docker is unreachable, so every stack and its home dir is kept. Run gc again once Docker is up.",
       );
     }
     return null;

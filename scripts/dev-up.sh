@@ -473,7 +473,12 @@ ensure_edge_singleton docker compose -f compose.dev.yml -p "$SLUG" up -d rome ch
 # a stack, since containers, the other proof, can be pruned. Written only now,
 # after the collision check passed and the stack came up, so a refused start
 # never claims another checkout's stack.
-git rev-parse --show-toplevel >"${ROME_WORKTREE_HOME}/.dev-stack-owner"
+# A second line marks a stack pinned by ROME_DEV_SLUG, which only its owner
+# may start (scripts/dev-stack-owner-check.sh).
+{
+  git rev-parse --show-toplevel
+  if [ -n "${ROME_DEV_SLUG:-}" ]; then echo pinned; fi
+} >"${ROME_WORKTREE_HOME}/.dev-stack-owner"
 
 # ---------------------------------------------------------------------------
 # 5b. Wait for /api/health so the readiness banner doesn't print before

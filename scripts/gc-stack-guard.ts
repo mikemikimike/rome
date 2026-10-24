@@ -49,7 +49,8 @@ export const OWNER_FILE = ".dev-stack-owner";
  *
  * `owner` is the owner file's content, or null when there is none.
  * `ownerDirs` is the compose working directory of each of the stack's
- * containers, or null when Docker could not be asked. Any doubt keeps the
+ * containers, or null when Docker could not be asked, which keeps the stack
+ * since no container can then outvote the owner file. Any doubt keeps the
  * stack: deleting a home dir that belongs to another checkout loses its
  * database, while keeping one only leaves a directory to remove by hand.
  */
@@ -61,8 +62,9 @@ export function mayTearDownStack(input: {
   ownerDirs: readonly string[] | null;
 }): boolean {
   if (input.pinned !== null && input.slug === input.pinned) return false;
+  if (input.ownerDirs === null) return false;
   const mine = (dir: string) => samePath(dir, input.worktreePath);
-  if (input.ownerDirs?.some((dir) => !mine(dir))) return false;
+  if (input.ownerDirs.some((dir) => !mine(dir))) return false;
   if (input.owner !== null) return mine(input.owner);
-  return input.ownerDirs !== null && input.ownerDirs.length > 0;
+  return input.ownerDirs.length > 0;
 }
