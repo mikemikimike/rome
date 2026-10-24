@@ -18,16 +18,29 @@
 # Keep the output identical across callers.
 set -euo pipefail
 
-branch="${ROME_DEV_SLUG:-}"
-# `--show-current` is empty on a detached HEAD; fall back to the worktree dir.
-if [ -z "$branch" ]; then
-  branch="$(git branch --show-current)"
+slugify() {
+  printf '%s' "$1" |
+    tr '[:upper:]' '[:lower:]' |
+    sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' |
+    cut -c1-63
+}
+
+# An override that sanitizes to nothing would name no stack at all, and
+# dev-up.sh would then mount the whole ~/.rome-worktrees as this stack's home.
+if [ -n "${ROME_DEV_SLUG:-}" ]; then
+  slug="$(slugify "$ROME_DEV_SLUG")"
+  if [ -z "$slug" ]; then
+    echo "worktree-slug: ROME_DEV_SLUG=\"$ROME_DEV_SLUG\" has no letters or digits, so it names no stack." >&2
+    exit 1
+  fi
+  printf '%s\n' "$slug"
+  exit 0
 fi
+
+# `--show-current` is empty on a detached HEAD; fall back to the worktree dir.
+branch="$(git branch --show-current)"
 if [ -z "$branch" ]; then
   branch="$(basename "$(git rev-parse --show-toplevel)")"
 fi
 
-printf '%s' "$branch" |
-  tr '[:upper:]' '[:lower:]' |
-  sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' |
-  cut -c1-63
+slugify "$branch"

@@ -151,15 +151,21 @@ host dir, but it cannot pollute any other worktree.
 
 The slug is the branch name, so switching branches in one checkout starts a
 different stack with its own data and address. To keep one stack across
-branches, set `ROME_DEV_SLUG` in your shell profile:
+branches, set `ROME_DEV_SLUG` for that checkout's commands:
 
 ```bash
-export ROME_DEV_SLUG=rome   # always http://rome.rome.localhost:3000
+ROME_DEV_SLUG=rome pnpm dev:all   # always http://rome.rome.localhost:3000
+ROME_DEV_SLUG=rome ./r pnpm test  # ./r finds the container by the same slug
 ```
+
+Set it per command or per directory, for example with direnv, not in a shell
+profile. A profile pins every worktree and every agent-spawned worktree to the
+same stack, which undoes the isolation above.
 
 Every branch then shares that stack's data, including the database. A
 migration from one branch stays applied after you switch to a branch that does
-not have it.
+not have it. `pnpm gc:worktrees` leaves a stack alone when it was started from
+another checkout or when `ROME_DEV_SLUG` pins its name.
 
 **Gotcha:** bare-metal `pnpm start` (host Node, no container) still
 writes to `~/.rome/<profile>/`, so it does *not* share state with
