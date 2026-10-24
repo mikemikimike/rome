@@ -166,10 +166,11 @@ Every branch then shares that stack's data, including the database. A
 migration from one branch stays applied after you switch to a branch that does
 not have it.
 
-`pnpm gc:worktrees` removes a worktree's stack only when its containers show
-that worktree started it. It keeps a stack started elsewhere, one with no
-containers left, and one whose owner Docker cannot report. Remove a kept stack
-by hand with the reset commands above.
+`pnpm gc:worktrees` removes a worktree's stack only when that worktree started
+it. `pnpm dev:all` records the starting checkout in `.dev-stack-owner` in the
+stack's home dir. A stack started before that file existed is judged by its
+containers instead, and is kept when it has none or Docker cannot report them.
+Remove a kept stack by hand with the reset commands above.
 
 **Gotcha:** bare-metal `pnpm start` (host Node, no container) still
 writes to `~/.rome/<profile>/`, so it does *not* share state with

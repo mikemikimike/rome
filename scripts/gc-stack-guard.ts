@@ -36,24 +36,32 @@ function samePath(a: string, b: string): boolean {
   return a === b || real(a) === real(b);
 }
 
+/** The file in a stack's home dir naming the checkout that last started it. */
+export const OWNER_FILE = ".dev-stack-owner";
+
 /**
  * Whether removing the worktree at `worktreePath` may also remove the stack
- * named `slug` and its home dir. Only when the stack's containers prove this
- * worktree started it, and this shell does not pin that slug.
+ * named `slug` and its home dir. Never when this shell pins that slug.
+ * Otherwise the owner file decides. A stack started before dev-up.sh wrote
+ * that file falls back to its containers, and needs at least one, all
+ * started from this worktree.
  *
+ * `owner` is the owner file's content, or null when there is none.
  * `ownerDirs` is the compose working directory of each of the stack's
- * containers, or null when Docker could not be asked. No answer and no
- * containers both prove nothing, so both keep the stack: deleting a home dir
- * that belongs to another checkout loses its database, while keeping one
- * only leaves a directory to remove by hand.
+ * containers, or null when Docker could not be asked. When neither proves
+ * ownership the stack is kept: deleting a home dir that belongs to another
+ * checkout loses its database, while keeping one only leaves a directory to
+ * remove by hand.
  */
 export function mayTearDownStack(input: {
   slug: string;
   worktreePath: string;
   pinned: string | null;
+  owner: string | null;
   ownerDirs: readonly string[] | null;
 }): boolean {
   if (input.pinned !== null && input.slug === input.pinned) return false;
+  if (input.owner !== null) return samePath(input.owner, input.worktreePath);
   if (input.ownerDirs === null || input.ownerDirs.length === 0) return false;
   return input.ownerDirs.every((dir) => samePath(dir, input.worktreePath));
 }

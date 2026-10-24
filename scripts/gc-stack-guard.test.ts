@@ -10,6 +10,7 @@ describe("mayTearDownStack", () => {
         slug: "shared",
         worktreePath: worktree,
         pinned: "shared",
+        owner: worktree,
         ownerDirs: [worktree],
       }),
     ).toBe(false);
@@ -21,6 +22,7 @@ describe("mayTearDownStack", () => {
         slug: "shared",
         worktreePath: worktree,
         pinned: null,
+        owner: null,
         ownerDirs: ["/src/rome"],
       }),
     ).toBe(false);
@@ -32,6 +34,7 @@ describe("mayTearDownStack", () => {
         slug: "shared",
         worktreePath: worktree,
         pinned: null,
+        owner: null,
         ownerDirs: [worktree],
       }),
     ).toBe(true);
@@ -39,13 +42,53 @@ describe("mayTearDownStack", () => {
 
   it("keeps the stack when Docker cannot say who owns it", () => {
     expect(
-      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: null, ownerDirs: null }),
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: null,
+        ownerDirs: null,
+      }),
     ).toBe(false);
   });
 
   it("keeps the stack when no container proves an owner", () => {
     expect(
-      mayTearDownStack({ slug: "shared", worktreePath: worktree, pinned: null, ownerDirs: [] }),
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: null,
+        ownerDirs: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("mayTearDownStack with an owner file", () => {
+  const worktree = "/src/rome-worktrees/shared";
+
+  it("tears down a stack whose owner file names this worktree, with no containers left", () => {
+    expect(
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: worktree,
+        ownerDirs: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a stack whose owner file names another checkout", () => {
+    expect(
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: "/src/rome",
+        ownerDirs: [worktree],
+      }),
     ).toBe(false);
   });
 });

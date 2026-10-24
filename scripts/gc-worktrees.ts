@@ -27,20 +27,21 @@
  *     skipped, because GC'ing it would surprise a user who's about to
  *     start work.
  *
- * The stack and home dir it removes are the ones named after the worktree
- * directory, and only when that stack was started from this worktree and is
- * not the one ROME_DEV_SLUG pins (see scripts/gc-stack-guard.ts).
+ * It looks a worktree's stack and home dir up by the worktree directory's
+ * name (#1314), and removes them only when that stack was started from this
+ * worktree and is not the one ROME_DEV_SLUG pins (see
+ * scripts/gc-stack-guard.ts).
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 
 import { checkbox } from "@inquirer/prompts";
 
-import { mayTearDownStack, pinnedSlug, slugify } from "./gc-stack-guard.js";
+import { mayTearDownStack, OWNER_FILE, pinnedSlug, slugify } from "./gc-stack-guard.js";
 
 // Types
 
@@ -168,8 +169,22 @@ const USAGE = `Usage: pnpm gc:worktrees [-y|--yes] [--include-locked] [--force]
                     untracked/modified file safety check).
 `;
 
-// Stack ownership. A worktree's stack is the one named after its directory.
-// It is left alone when it belongs to another checkout (gc-stack-guard.ts).
+// Stack ownership. gc looks a worktree's stack up by the worktree directory's
+// name, which can differ from the name dev-up.sh gave it (#1314). Before it
+// removes that stack it checks who started it (gc-stack-guard.ts).
+
+let warnedDockerUnreachable = false;
+
+/** The owner file's content in the stack `slug`'s home dir, or null. */
+function stackOwner(slug: string): string | null {
+  try {
+    return (
+      readFileSync(join(homedir(), ".rome-worktrees", slug, OWNER_FILE), "utf8").trim() || null
+    );
+  } catch {
+    return null;
+  }
+}
 
 /** The compose working directory of each container in the stack `slug`, or
  *  null when Docker could not be asked. */
@@ -182,7 +197,15 @@ function stackOwnerDirs(slug: string): string[] | null {
     "--format",
     '{{.Label "com.docker.compose.project.working_dir"}}',
   ]);
-  if (!r.ok) return null;
+  if (!r.ok) {
+    if (!warnedDockerUnreachable) {
+      warnedDockerUnreachable = true;
+      console.warn(
+        "docker is unreachable, so stacks without an owner file and their home dirs are kept. Run gc again once Docker is up.",
+      );
+    }
+    return null;
+  }
   return [
     ...new Set(
       r.stdout
@@ -198,11 +221,15 @@ function stackActions(
   slug: string,
   worktreePath: string,
 ): { hasCompose: boolean; rmRomeHome: boolean } {
+  const owner = stackOwner(slug);
   const owned = mayTearDownStack({
     slug,
     worktreePath,
     pinned: pinnedSlug(process.env),
-    ownerDirs: stackOwnerDirs(slug),
+    owner,
+    // Containers are the fallback proof, for stacks started before dev-up.sh
+    // wrote the owner file.
+    ownerDirs: owner === null ? stackOwnerDirs(slug) : [],
   });
   return {
     hasCompose: owned && existsSync(join(worktreePath, "compose.dev.yml")),

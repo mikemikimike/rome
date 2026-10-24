@@ -32,6 +32,9 @@ export ROME_HOST_UID ROME_HOST_GID
 # from racing on a shared lockfile/DB. See docs/assumption.md.
 ROME_WORKTREE_HOME="${HOME}/.rome-worktrees/${SLUG}"
 mkdir -p "$ROME_WORKTREE_HOME"
+# The checkout that last started this stack. gc-worktrees reads it before it
+# removes a stack, since containers, the other proof, can be pruned.
+git rev-parse --show-toplevel >"${ROME_WORKTREE_HOME}/.dev-stack-owner"
 
 # `pnpm store path` returns the versioned path (e.g. .../store/v10); strip
 # the suffix so the in-container pnpm picks its own v<N> underneath.
