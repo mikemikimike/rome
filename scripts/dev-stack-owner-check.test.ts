@@ -13,8 +13,12 @@ let home: string;
 let mine: string;
 let other: string;
 
-function check() {
-  return spawnSync("bash", [script, home, mine], { encoding: "utf8" });
+/** Runs the check with ROME_DEV_SLUG set to `romeDevSlug`, or unset for null. */
+function check(romeDevSlug: string | null = "shared") {
+  const env = { ...process.env };
+  delete env.ROME_DEV_SLUG;
+  if (romeDevSlug !== null) env.ROME_DEV_SLUG = romeDevSlug;
+  return spawnSync("bash", [script, home, mine], { env, encoding: "utf8" });
 }
 
 beforeEach(() => {
@@ -48,6 +52,12 @@ describe("dev-stack-owner-check.sh", () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(other);
     expect(r.stderr).toContain(OWNER_FILE);
+  });
+
+  it("leaves an unpinned stack alone, since a branch may move between checkouts", () => {
+    writeFileSync(join(home, OWNER_FILE), `${other}\n`);
+
+    expect(check(null).status).toBe(0);
   });
 
   it("lets a stack start when its recorded owner no longer exists", () => {

@@ -161,7 +161,7 @@ if [ -n "$existing_project_labels" ]; then
 fi
 
 # A stopped stack has no running containers for the check above to see, so
-# also refuse one whose recorded owner is another checkout.
+# also refuse a pinned one whose recorded owner is another checkout.
 scripts/dev-stack-owner-check.sh "$ROME_WORKTREE_HOME" "$(git rev-parse --show-toplevel)"
 
 # ---------------------------------------------------------------------------

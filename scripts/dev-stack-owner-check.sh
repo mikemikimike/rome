@@ -9,7 +9,13 @@
 # take over a stopped stack, its database included, and become its owner.
 # A recorded owner that no longer exists on disk (a removed worktree) does not
 # block. Removing the owner file hands the stack over on purpose.
+#
+# Only a stack pinned by ROME_DEV_SLUG is checked. An unpinned stack is named
+# after its branch, and a branch may move between checkouts, which has always
+# been allowed to reuse the stack.
 set -euo pipefail
+
+[ -n "${ROME_DEV_SLUG:-}" ] || exit 0
 
 home="$1"
 this_root="$2"
