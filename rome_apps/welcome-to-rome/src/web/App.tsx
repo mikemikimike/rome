@@ -188,7 +188,7 @@ function StepList({
   copy: Copy;
 }) {
   return (
-    <ol className="flex w-full max-w-xs flex-col gap-2 text-left text-sm">
+    <ol className="flex w-full max-w-xs flex-col gap-2 text-left text-ui">
       {STEPS.map((step, i) => {
         const past = i < stepIndex;
         const current = i === stepIndex;
@@ -198,7 +198,7 @@ function StepList({
           <li
             key={step}
             className={cn(
-              "flex items-center gap-2.5",
+              "flex items-center gap-2",
               current ? "font-medium text-foreground" : "text-muted-foreground",
             )}
           >
@@ -207,7 +207,7 @@ function StepList({
               className={cn("size-4 shrink-0", past && !skipped && "text-primary")}
             />
             <span className="flex-1">{copy.landing.steps[step]}</span>
-            {skipped ? <span className="text-xs">{copy.landing.stepSkipped}</span> : null}
+            {skipped ? <span className="text-aux">{copy.landing.stepSkipped}</span> : null}
           </li>
         );
       })}
