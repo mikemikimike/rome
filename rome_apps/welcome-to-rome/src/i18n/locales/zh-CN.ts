@@ -41,6 +41,8 @@ const zhCN = {
       restart: "重新开始",
       newChat: "新建聊天",
       openWelcomeChat: "打开欢迎对话",
+      loadError: "暂时无法读取设置进度。请再试一次。",
+      retry: "再试一次",
     },
     names: {
       guardianLabel: "我怎么称呼你",

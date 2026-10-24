@@ -19,6 +19,8 @@ interface WelcomeWebCopy {
     restart: string;
     newChat: string;
     openWelcomeChat: string;
+    loadError: string;
+    retry: string;
   };
   names: {
     guardianLabel: string;

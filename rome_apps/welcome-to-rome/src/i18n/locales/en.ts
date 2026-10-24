@@ -48,6 +48,8 @@ const en = {
       restart: "Start over",
       newChat: "New chat",
       openWelcomeChat: "Open the welcome chat",
+      loadError: "I couldn't check where setup stands just now. Give it another try.",
+      retry: "Try again",
     },
     names: {
       guardianLabel: "What I call you",

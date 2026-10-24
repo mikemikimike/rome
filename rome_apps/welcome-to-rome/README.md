@@ -60,9 +60,14 @@ stands:
   the run's chat is gone, **Start over** is the only button.
 - **Finished**: the four steps (a skipped AI connect is marked), **New chat**,
   **Open the welcome chat**, and **Start over**.
+- **State unreadable**: a short error and **Try again**. A failed read never
+  shows the first run, because **Start chat** resets the run.
+
+Only a 404 from the chat route counts as a deleted chat. Any other lookup
+failure keeps **Continue setup**, and the chat page reports its own error.
 
 A run from before `session_id` existed has no chat id, so the screen picks the
-newest welcome chat. Every start from this screen resets the run, so that chat
+newest welcome chat, archived ones included. Every start from this screen resets the run, so that chat
 is the run's own.
 
 It is deliberately a moment of delight rather than a form: a confetti burst on

@@ -5,7 +5,8 @@ import { fetchAppApi, navigateRome, startChat, type RomeAppBootstrap } from "@ro
 import { Button } from "@rome-os/ui/button";
 import { cn } from "@/lib/utils";
 import { fireBurst, fireWelcome } from "@/lib/confetti";
-import { getWelcomeCopy, type WelcomeStep } from "@/lib/copy";
+import { getWelcomeCopy } from "@/lib/copy";
+import { type Landing, type LandingData, loadLanding, STEPS } from "@/lib/landing";
 
 // Side-effect imports: each module's top-level `defineComponent(...)` registers
 // an inline chat component into the SDK registry at bundle load, so the host can
@@ -20,36 +21,6 @@ import "@/scout-suggestions";
 // `dist/web/static/media/rome-logo-2.mp4`, and it's tracked via Git LFS
 // (.gitattributes `*.mp4`).
 const ROME_LOGO_VIDEO = new URL("./assets/rome-logo-2.mp4", import.meta.url).href;
-const FALLBACK_AGENT_NAME = "Rome";
-// The host qualifies the agent name with the app id when it creates the chat.
-const WELCOME_AGENT_NAMES = new Set(["welcome-to-rome:welcome-to-rome", "welcome-to-rome"]);
-
-const STEPS: readonly WelcomeStep[] = ["names", "ai", "question", "ideas"];
-
-// How far each state-machine cursor (db/repositories/progress.ts) has got
-// through STEPS. `done` is past the last one. The briefing-scout offer is part
-// of the last step, since it comes right before the first-app ideas.
-const STEP_INDEX_BY_NODE: Record<string, number> = {
-  await_names: 0,
-  await_ai: 1,
-  await_question: 2,
-  await_scouts: 3,
-  await_idea: 3,
-  done: STEPS.length,
-};
-
-interface WelcomeProgress {
-  node: string;
-  aiConnected: boolean | null;
-  sessionId: string | null;
-}
-
-/** What the landing screen shows: a first run, a run to pick up, or a finished one. */
-type Landing =
-  | { kind: "fresh" }
-  | { kind: "resume"; stepIndex: number; chatId: string | null; aiConnected: boolean | null }
-  | { kind: "done"; chatId: string | null; aiConnected: boolean | null };
-
 // The agent's opening line — written to read like a person saying hello, not a
 // product tagline. The active locale supplies it via `copy.landing.greeting`;
 // it is typed out word by word below.
@@ -105,63 +76,6 @@ function useTypewriter(text: string): { shown: string; done: boolean } {
   return { shown, done };
 }
 
-function readAgentName(value: unknown): string {
-  return typeof value === "string" && value.trim() ? value.trim() : FALLBACK_AGENT_NAME;
-}
-
-function readProgress(value: unknown): WelcomeProgress | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  if (typeof v.node !== "string") return null;
-  return {
-    node: v.node,
-    aiConnected: typeof v.aiConnected === "boolean" ? v.aiConnected : null,
-    sessionId: typeof v.sessionId === "string" && v.sessionId ? v.sessionId : null,
-  };
-}
-
-async function getJson(path: string): Promise<unknown> {
-  const res = await fetch(path, { credentials: "include" });
-  if (!res.ok) return null;
-  return res.json().catch(() => null);
-}
-
-/**
- * Find the chat the welcome run lives in, or null when it is gone. A run that
- * started before the progress row recorded its chat has no id, so it falls back
- * to the newest welcome chat: every start from this screen resets the run, so
- * the newest one is the run's own.
- */
-async function findWelcomeChat(sessionId: string | null): Promise<string | null> {
-  if (sessionId) {
-    const session = await getJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}`);
-    return session ? sessionId : null;
-  }
-  const sessions = await getJson("/api/chat/sessions");
-  if (!Array.isArray(sessions)) return null;
-  const newest = sessions
-    .filter(
-      (s): s is { id: string; agentName: string; createdAt: string } =>
-        !!s &&
-        typeof s.id === "string" &&
-        typeof s.agentName === "string" &&
-        WELCOME_AGENT_NAMES.has(s.agentName) &&
-        typeof s.createdAt === "string",
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  return newest?.id ?? null;
-}
-
-async function loadLanding(progress: WelcomeProgress | null): Promise<Landing> {
-  const stepIndex = progress ? STEP_INDEX_BY_NODE[progress.node] : undefined;
-  if (!progress || stepIndex === undefined) return { kind: "fresh" };
-  const chatId = await findWelcomeChat(progress.sessionId).catch(() => null);
-  if (stepIndex >= STEPS.length) {
-    return { kind: "done", chatId, aiConnected: progress.aiConnected };
-  }
-  return { kind: "resume", stepIndex, chatId, aiConnected: progress.aiConnected };
-}
-
 type Copy = ReturnType<typeof getWelcomeCopy>;
 
 function greetingFor(landing: Landing, agentName: string, copy: Copy): string {
@@ -174,6 +88,8 @@ function greetingFor(landing: Landing, agentName: string, copy: Copy): string {
         : copy.landing.resumeGreetingNoChat;
     case "done":
       return copy.landing.doneGreeting;
+    case "error":
+      return copy.landing.loadError;
   }
 }
 
@@ -217,7 +133,7 @@ function StepList({
 
 export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
   const copy = getWelcomeCopy(bootstrap.shell.locale);
-  const [screen, setScreen] = useState<{ agentName: string; landing: Landing } | null>(null);
+  const [screen, setScreen] = useState<LandingData | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -226,22 +142,25 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
     screen ? greetingFor(screen.landing, screen.agentName, copy) : "",
   );
 
+  // Bumped by Try again to read the run's state once more.
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    void fetchAppApi("state")
-      .then(async (res) => {
-        if (!res.ok) return {};
-        return (await res.json().catch(() => ({}))) as { agentName?: unknown; progress?: unknown };
-      })
-      .catch(() => ({}) as { agentName?: unknown; progress?: unknown })
-      .then(async (data) => {
-        const landing = await loadLanding(readProgress(data.progress));
-        if (!cancelled) setScreen({ agentName: readAgentName(data.agentName), landing });
-      });
+    void loadLanding(
+      () => fetchAppApi("state"),
+      (path, init) => fetch(path, init),
+    ).then((data) => {
+      if (!cancelled) setScreen(data);
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
+
+  function retryLoad() {
+    setScreen(null);
+    setLoadAttempt((n) => n + 1);
+  }
 
   // Fire the welcome burst on a first run — the guardian's first moment in
   // Rome. A guardian coming back to a run already had it. Honours
@@ -309,8 +228,8 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
     navigateRome({ path: "chat", sessionId });
   }
 
-  const landing = screen?.landing ?? { kind: "fresh" };
-  const chatId = landing.kind === "fresh" ? null : landing.chatId;
+  const landing: Landing | null = screen?.landing ?? null;
+  const chatId = landing && "chatId" in landing ? landing.chatId : null;
   const startLabel = starting ? copy.landing.opening : copy.landing.start;
   const restartLabel = starting ? copy.landing.opening : copy.landing.restart;
 
@@ -357,14 +276,18 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
           done ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
         )}
       >
-        {landing.kind === "resume" ? (
+        {landing?.kind === "resume" ? (
           <StepList stepIndex={landing.stepIndex} aiConnected={landing.aiConnected} copy={copy} />
-        ) : landing.kind === "done" ? (
+        ) : landing?.kind === "done" ? (
           <StepList stepIndex={STEPS.length} aiConnected={landing.aiConnected} copy={copy} />
         ) : null}
 
         <div className="flex flex-col items-center gap-3">
-          {landing.kind === "fresh" || (landing.kind === "resume" && !chatId) ? (
+          {!landing ? null : landing.kind === "error" ? (
+            <Button size="md" onClick={retryLoad} disabled={!done}>
+              {copy.landing.retry}
+            </Button>
+          ) : landing.kind === "fresh" || (landing.kind === "resume" && !chatId) ? (
             <Button
               ref={buttonRef}
               size="md"
@@ -406,7 +329,7 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
             </Button>
           )}
 
-          {landing.kind === "done" && chatId ? (
+          {landing?.kind === "done" && chatId ? (
             <Button
               variant="outline"
               size="md"
@@ -417,7 +340,7 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
             </Button>
           ) : null}
 
-          {(landing.kind === "resume" && chatId) || landing.kind === "done" ? (
+          {(landing?.kind === "resume" && chatId) || landing?.kind === "done" ? (
             <Button
               ref={buttonRef}
               variant="ghost"
