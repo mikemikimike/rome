@@ -13,15 +13,15 @@ import { copyFor } from "./copy.js";
 import { normalizeWelcomeLocale, type WelcomeLocale } from "../../locale.js";
 
 const AGENT_NAME = "welcome-to-rome";
-const WEBCHAT_KEY_PREFIX = "webchat:";
+// A chat's own thread key, as core builds it (`webchatSessionKey`). Subagent
+// (`…:subagent:…`) and fork (`…#fork:…`) keys nest under it and are not chats.
+const WEBCHAT_CHAT_KEY = /^webchat:([^:#]+)$/;
 
 /** The chat a webchat turn belongs to, read from its `webchat:<chatId>` thread
  *  key. The AgentSession id is a different id, which the chat routes do not
- *  know. Null for any other channel. */
+ *  know. Null for any other key. */
 function webchatChatId(channelThreadKey: string): string | null {
-  if (!channelThreadKey.startsWith(WEBCHAT_KEY_PREFIX)) return null;
-  const [chatId] = channelThreadKey.slice(WEBCHAT_KEY_PREFIX.length).split(":");
-  return chatId || null;
+  return WEBCHAT_CHAT_KEY.exec(channelThreadKey)?.[1] ?? null;
 }
 
 /** Cap the inline idea brainstorm so a stuck specialist can't hang the turn —

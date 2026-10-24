@@ -109,10 +109,14 @@ describe("welcome-to-rome turn middleware routing", () => {
     expect(mocks.patch).toHaveBeenCalledWith({ sessionId: "chat-1" });
   });
 
-  it("records no chat for a turn outside webchat", async () => {
+  it.each([
+    ["outside webchat", "telegram:123"],
+    ["in a subagent of a chat", "webchat:chat-1:subagent:sub-1"],
+    ["in a fork of a chat", "webchat:chat-1#fork:fork-1"],
+  ])("records no chat for a turn %s", async (_label, channelThreadKey) => {
     mocks.row = { node: "done", sessionId: "older-chat" };
 
-    await runWelcomeTurn("telegram:123");
+    await runWelcomeTurn(channelThreadKey);
 
     expect(mocks.patch).not.toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: expect.anything() }),
