@@ -113,7 +113,8 @@ jobs:
       - name: Test Gemini OpenCLI plugin
         run: pnpm -C opencli-plugins/gemini test
       - name: Install LinkedIn OpenCLI test dependency
-        run: npm install --prefix opencli-plugins/linkedin --ignore-scripts --no-package-lock --no-save @jackwener/opencli@1.8.8
+        working-directory: opencli-plugins/linkedin
+        run: npm install --ignore-scripts --no-package-lock --include=dev
       - name: Test LinkedIn OpenCLI plugin
         run: pnpm -C opencli-plugins/linkedin test
       - run: pnpm lint
