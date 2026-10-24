@@ -1,5 +1,5 @@
 import { describe, expect, it, rs } from "@rstest/core";
-import { loadLanding } from "./landing.js";
+import { loadLanding, startWelcomeRun } from "./landing.js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -84,5 +84,44 @@ describe("loadLanding", () => {
     );
 
     expect(result.landing).toEqual({ kind: "error" });
+  });
+});
+
+describe("startWelcomeRun", () => {
+  it("opens no chat when a run under way could not be reset", async () => {
+    for (const reset of [
+      () => Promise.resolve(json({}, 500)),
+      () => Promise.reject(new Error("offline")),
+    ]) {
+      const openChat = rs.fn(async () => {});
+
+      const outcome = await startWelcomeRun({ runUnderWay: true, reset, openChat });
+
+      expect(outcome).toBe("reset_failed");
+      expect(openChat).not.toHaveBeenCalled();
+    }
+  });
+
+  it("still opens the chat for a run not yet started when the reset fails", async () => {
+    const openChat = rs.fn(async () => {});
+
+    const outcome = await startWelcomeRun({
+      runUnderWay: false,
+      reset: () => Promise.resolve(json({}, 500)),
+      openChat,
+    });
+
+    expect(outcome).toBe("started");
+    expect(openChat).toHaveBeenCalledOnce();
+  });
+
+  it("reports a chat that failed to open after the reset", async () => {
+    const outcome = await startWelcomeRun({
+      runUnderWay: true,
+      reset: () => Promise.resolve(json({ ok: true })),
+      openChat: () => Promise.reject(new Error("no session")),
+    });
+
+    expect(outcome).toBe("start_failed");
   });
 });

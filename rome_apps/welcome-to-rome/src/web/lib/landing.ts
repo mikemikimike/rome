@@ -81,6 +81,10 @@ async function findWelcomeChat(
     );
     return res?.status === 404 ? null : sessionId;
   }
+  // This lists every chat on each visit until the run's next welcome turn
+  // records its chat, which a finished run may never take. Accepted: it only
+  // reaches runs that started before the chat was recorded, and only on this
+  // rarely opened screen.
   const res = await fetchHost("/api/chat/sessions?status=all", init);
   if (!res.ok) throw new Error(`chat list returned ${res.status}`);
   const sessions: unknown = await res.json();
@@ -134,4 +138,29 @@ export async function loadLanding(
     agentName,
     landing: { kind: "resume", stepIndex, chatId, aiConnected: progress.aiConnected },
   };
+}
+
+/** How a Start chat or Start over press ended. */
+export type StartOutcome = "started" | "reset_failed" | "start_failed";
+
+/**
+ * Reset the run, then open a new welcome chat. When a run is under way, the
+ * chat opens only after the reset succeeded: a chat opened on top of a run
+ * that was not reset would pick that run up, which is the opposite of
+ * starting over. A run not yet started has nothing to lose, so its reset stays
+ * best-effort.
+ */
+export async function startWelcomeRun(input: {
+  runUnderWay: boolean;
+  reset: () => Promise<Response>;
+  openChat: () => Promise<unknown>;
+}): Promise<StartOutcome> {
+  const reset = await input.reset().catch(() => null);
+  if (input.runUnderWay && !reset?.ok) return "reset_failed";
+  try {
+    await input.openChat();
+    return "started";
+  } catch {
+    return "start_failed";
+  }
 }

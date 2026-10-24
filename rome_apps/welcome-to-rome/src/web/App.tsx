@@ -6,7 +6,7 @@ import { Button } from "@rome-os/ui/button";
 import { cn } from "@/lib/utils";
 import { fireBurst, fireWelcome } from "@/lib/confetti";
 import { getWelcomeCopy } from "@/lib/copy";
-import { type Landing, type LandingData, loadLanding, STEPS } from "@/lib/landing";
+import { type Landing, type LandingData, loadLanding, STEPS, startWelcomeRun } from "@/lib/landing";
 
 // Side-effect imports: each module's top-level `defineComponent(...)` registers
 // an inline chat component into the SDK registry at bundle load, so the host can
@@ -113,6 +113,7 @@ function StepList({
         return (
           <li
             key={step}
+            aria-current={current ? "step" : undefined}
             className={cn(
               "flex items-center gap-2",
               current ? "font-medium text-foreground" : "text-muted-foreground",
@@ -123,7 +124,13 @@ function StepList({
               className={cn("size-4 shrink-0", past && !skipped && "text-primary")}
             />
             <span className="flex-1">{copy.landing.steps[step]}</span>
-            {skipped ? <span className="text-aux">{copy.landing.stepSkipped}</span> : null}
+            {skipped ? (
+              <span className="text-aux">{copy.landing.stepSkipped}</span>
+            ) : past ? (
+              <span className="sr-only">{copy.landing.stepDone}</span>
+            ) : current ? (
+              <span className="sr-only">{copy.landing.stepCurrent}</span>
+            ) : null}
           </li>
         );
       })}
@@ -203,25 +210,29 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
       });
     }
 
-    try {
+    const runUnderWay = screen?.landing.kind !== "fresh";
+    const outcome = await startWelcomeRun({
+      runUnderWay,
       // Reset the welcome progress so the new chat replays from a clean slate.
       // This full-mode page is outside RomeShellLayout, so include its
       // bootstrap locale for the server-side middleware before opening the
-      // chat. A reset failure shouldn't block the chat, so this remains
-      // best-effort.
-      await fetchAppApi("reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale: bootstrap.shell.locale }),
-      }).catch(() => {});
+      // chat.
+      reset: () =>
+        fetchAppApi("reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: bootstrap.shell.locale }),
+        }),
       // startChat creates the session with the welcome-to-rome agent, posts the
       // kickoff turn, and soft-navigates to /chat/<id> — where the conversational
       // onboarding takes over.
-      await startChat({ message: copy.landing.kickoff, agentName: "welcome-to-rome" });
-    } catch {
-      setError(copy.landing.openError);
-      setStarting(false);
-    }
+      openChat: () => startChat({ message: copy.landing.kickoff, agentName: "welcome-to-rome" }),
+    });
+    if (outcome === "started") return;
+    setError(copy.landing.openError);
+    setStarting(false);
+    // The reset went through but no chat opened, so the run on screen is gone.
+    if (outcome === "start_failed" && runUnderWay) retryLoad();
   }
 
   function openChat(sessionId: string) {

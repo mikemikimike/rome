@@ -15,6 +15,8 @@ interface WelcomeWebCopy {
     doneGreeting: string;
     steps: Record<WelcomeStep, string>;
     stepSkipped: string;
+    stepDone: string;
+    stepCurrent: string;
     resume: string;
     restart: string;
     newChat: string;

@@ -44,6 +44,8 @@ const en = {
         ideas: "Pick a first app",
       },
       stepSkipped: "Skipped",
+      stepDone: "Done",
+      stepCurrent: "Current step",
       resume: "Continue setup",
       restart: "Start over",
       newChat: "New chat",

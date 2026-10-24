@@ -37,6 +37,8 @@ const zhCN = {
         ideas: "选第一个应用",
       },
       stepSkipped: "已跳过",
+      stepDone: "已完成",
+      stepCurrent: "当前步骤",
       resume: "继续设置",
       restart: "重新开始",
       newChat: "新建聊天",
