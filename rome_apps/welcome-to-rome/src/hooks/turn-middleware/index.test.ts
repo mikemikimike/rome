@@ -38,10 +38,15 @@ const logger: AppLogger = {
   error: rs.fn(),
 };
 
-function makeContext(agentName: string, emitted: AgentMessage[]): TurnMiddlewareContext {
+function makeContext(
+  agentName: string,
+  emitted: AgentMessage[],
+  channelThreadKey = "webchat:chat-1",
+): TurnMiddlewareContext {
   return {
     input: { prompt: "hello" },
-    session: { id: "session-1", agentName, channelThreadKey: "webchat:session-1" },
+    // The AgentSession id and the chat id differ, as they do in core.
+    session: { id: "agent-session-1", agentName, channelThreadKey },
     emit: (event) => emitted.push(event),
     meta: {},
   };
@@ -81,22 +86,36 @@ describe("welcome-to-rome turn middleware routing", () => {
     expect(emitted).toEqual([]);
   });
 
-  it("records the chat the welcome run is taking turns in", async () => {
+  async function runWelcomeTurn(channelThreadKey: string): Promise<void> {
     rs.useFakeTimers();
-    mocks.row = { node: "done", sessionId: "older-chat" };
     const appContext = {
       db: {},
       repositories: { settings: { get: rs.fn(async () => null), set: rs.fn() } },
     } as unknown as RomeAppContext;
     const deps: TurnMiddlewareHookDeps = { appId: "welcome-to-rome", logger, appContext };
     const promise = createHook(deps).handle(
-      makeContext("welcome-to-rome:welcome-to-rome", []),
+      makeContext("welcome-to-rome:welcome-to-rome", [], channelThreadKey),
       rs.fn(async () => {}),
     );
-
     await rs.runAllTimersAsync();
     await promise;
+  }
 
-    expect(mocks.patch).toHaveBeenCalledWith({ sessionId: "session-1" });
+  it("records the chat the welcome run is taking turns in, not the agent session", async () => {
+    mocks.row = { node: "done", sessionId: "older-chat" };
+
+    await runWelcomeTurn("webchat:chat-1");
+
+    expect(mocks.patch).toHaveBeenCalledWith({ sessionId: "chat-1" });
+  });
+
+  it("records no chat for a turn outside webchat", async () => {
+    mocks.row = { node: "done", sessionId: "older-chat" };
+
+    await runWelcomeTurn("telegram:123");
+
+    expect(mocks.patch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: expect.anything() }),
+    );
   });
 });

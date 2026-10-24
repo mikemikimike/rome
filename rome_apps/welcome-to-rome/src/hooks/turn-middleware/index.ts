@@ -13,6 +13,16 @@ import { copyFor } from "./copy.js";
 import { normalizeWelcomeLocale, type WelcomeLocale } from "../../locale.js";
 
 const AGENT_NAME = "welcome-to-rome";
+const WEBCHAT_KEY_PREFIX = "webchat:";
+
+/** The chat a webchat turn belongs to, read from its `webchat:<chatId>` thread
+ *  key. The AgentSession id is a different id, which the chat routes do not
+ *  know. Null for any other channel. */
+function webchatChatId(channelThreadKey: string): string | null {
+  if (!channelThreadKey.startsWith(WEBCHAT_KEY_PREFIX)) return null;
+  const [chatId] = channelThreadKey.slice(WEBCHAT_KEY_PREFIX.length).split(":");
+  return chatId || null;
+}
 
 /** Cap the inline idea brainstorm so a stuck specialist can't hang the turn —
  *  on timeout we fall back to generic starter ideas. */
@@ -78,8 +88,9 @@ class WelcomeTurnMiddleware implements TurnMiddlewareHook {
       const effects = this.makeEffects(ctx);
       // The progress row is one per instance, so the chat that last took a turn
       // is the one the landing screen sends the guardian back to.
-      if (effects.progress.get().sessionId !== ctx.session.id) {
-        effects.progress.patch({ sessionId: ctx.session.id });
+      const chatId = webchatChatId(ctx.session.channelThreadKey);
+      if (chatId && effects.progress.get().sessionId !== chatId) {
+        effects.progress.patch({ sessionId: chatId });
       }
       const reply = await runTurn(ctx.input.prompt ?? "", effects);
       await this.emitReply(ctx, reply);

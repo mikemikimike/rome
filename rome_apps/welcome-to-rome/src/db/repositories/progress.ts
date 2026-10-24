@@ -31,8 +31,8 @@ export interface WelcomeProgress {
   /** Null until the connect-AI step resolves. */
   aiConnected: boolean | null;
   completedAt: string | null;
-  /** The chat this run lives in. Null before the first turn, and for a run
-   *  that started before the column existed. */
+  /** The webchat chat this run lives in (the id in `/chat/<id>`). Null before
+   *  the first turn, and for a run that started before the column existed. */
   sessionId: string | null;
 }
 
