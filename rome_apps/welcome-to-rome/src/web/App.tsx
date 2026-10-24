@@ -156,6 +156,12 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
     void loadLanding(
       () => fetchAppApi("state"),
       (path, init) => fetch(path, init),
+      (sessionId) =>
+        fetchAppApi("session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        }),
     ).then((data) => {
       if (!cancelled) setScreen(data);
     });

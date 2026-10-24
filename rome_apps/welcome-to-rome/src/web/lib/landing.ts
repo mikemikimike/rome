@@ -24,8 +24,9 @@ type LandingProgress = Pick<WelcomeProgress, "node" | "aiConnected" | "sessionId
 
 /**
  * What the landing screen shows: a first run, a run to pick up, a finished
- * one, or an error when the run could not be read. Only a run read as not
- * started offers the button that resets it.
+ * one, or an error when the run could not be read. Every state but the error
+ * offers a button that resets the run, so a reset is offered only after the
+ * state was read.
  */
 export type Landing =
   | { kind: "fresh" }
@@ -39,6 +40,8 @@ export interface LandingData {
 }
 
 type FetchHost = (path: string, init?: RequestInit) => Promise<Response>;
+/** Records the chat found for an older run through the app's `POST /session`. */
+type SaveChat = (sessionId: string) => Promise<unknown>;
 
 function readAgentName(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : FALLBACK_AGENT_NAME;
@@ -75,6 +78,7 @@ function readProgress(value: unknown): LandingProgress | null {
 async function findWelcomeChat(
   sessionId: string | null,
   fetchHost: FetchHost,
+  saveChat: SaveChat,
 ): Promise<string | null> {
   const init: RequestInit = { credentials: "include" };
   if (sessionId) {
@@ -83,10 +87,7 @@ async function findWelcomeChat(
     );
     return res?.status === 404 ? null : sessionId;
   }
-  // This lists every chat on each visit until the run's next welcome turn
-  // records its chat, which a finished run may never take. Accepted: it only
-  // reaches runs that started before the chat was recorded, and only on this
-  // rarely opened screen.
+  // The chat found here is saved, so this full list runs once per older run.
   const res = await fetchHost("/api/chat/sessions?status=all", init);
   if (!res.ok) throw new Error(`chat list returned ${res.status}`);
   const sessions: unknown = await res.json();
@@ -101,7 +102,10 @@ async function findWelcomeChat(
         typeof s.createdAt === "string",
     )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  return newest?.id ?? null;
+  if (!newest) return null;
+  // Best-effort: a failed save only means the next visit searches again.
+  await saveChat(newest.id).catch(() => undefined);
+  return newest.id;
 }
 
 /**
@@ -112,6 +116,7 @@ async function findWelcomeChat(
 export async function loadLanding(
   fetchState: () => Promise<Response>,
   fetchHost: FetchHost,
+  saveChat: SaveChat = async () => undefined,
 ): Promise<LandingData> {
   let data: { agentName?: unknown; progress?: unknown };
   try {
@@ -128,7 +133,7 @@ export async function loadLanding(
 
   let chatId: string | null;
   try {
-    chatId = await findWelcomeChat(progress.sessionId, fetchHost);
+    chatId = await findWelcomeChat(progress.sessionId, fetchHost, saveChat);
   } catch {
     return { agentName, landing: { kind: "error" } };
   }

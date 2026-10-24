@@ -79,13 +79,28 @@ describe("loadLanding", () => {
       ]),
     );
 
+    const saveChat = rs.fn(async () => undefined);
+
     const result = await loadLanding(
       state({ node: "done", aiConnected: false, sessionId: null }),
       fetchHost,
+      saveChat,
     );
 
     expect(fetchHost).toHaveBeenCalledWith("/api/chat/sessions?status=all", expect.anything());
+    expect(saveChat).toHaveBeenCalledWith("archived-newest");
     expect(result.landing).toEqual({ kind: "done", chatId: "archived-newest", aiConnected: false });
+  });
+
+  it("still shows the found chat when saving it fails", async () => {
+    const result = await loadLanding(
+      state({ node: "await_names", aiConnected: null, sessionId: null }),
+      async () =>
+        json([{ id: "c1", agentName: "welcome-to-rome", createdAt: "2026-10-01T00:00:00Z" }]),
+      () => Promise.reject(new Error("offline")),
+    );
+
+    expect(result.landing).toMatchObject({ kind: "resume", chatId: "c1" });
   });
 
   it("shows an error when an older run's chat list cannot be read", async () => {

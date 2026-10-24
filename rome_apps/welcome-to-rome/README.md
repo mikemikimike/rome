@@ -67,7 +67,8 @@ Only a 404 from the chat route counts as a deleted chat. Any other lookup
 failure keeps **Continue setup**, and the chat page reports its own error.
 
 A run from before `session_id` existed has no chat id, so the screen picks the
-newest welcome chat, archived ones included. Every start from this screen resets the run, so that chat
+newest welcome chat, archived ones included, and records it through
+`POST /session`, which never replaces a recorded chat. Every start from this screen resets the run, so that chat
 is the run's own.
 
 It is deliberately a moment of delight rather than a form: a confetti burst on

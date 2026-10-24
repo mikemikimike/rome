@@ -12,7 +12,8 @@ web:
   displayName: Welcome to Rome
 
 # The landing screen (src/web/App.tsx) reads GET /state to show where the
-# welcome run stands, and calls POST /reset before it opens a new welcome chat.
+# welcome run stands, records the chat it finds for an older run with
+# POST /session, and calls POST /reset before it opens a new welcome chat.
 api:
   entry: api/index
 
