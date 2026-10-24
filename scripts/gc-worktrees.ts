@@ -227,9 +227,7 @@ function stackActions(
     worktreePath,
     pinned: pinnedSlug(process.env),
     owner,
-    // Containers are the fallback proof, for stacks started before dev-up.sh
-    // wrote the owner file.
-    ownerDirs: owner === null ? stackOwnerDirs(slug) : [],
+    ownerDirs: stackOwnerDirs(slug),
   });
   return {
     hasCompose: owned && existsSync(join(worktreePath, "compose.dev.yml")),

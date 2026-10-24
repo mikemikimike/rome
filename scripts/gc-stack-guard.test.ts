@@ -80,6 +80,18 @@ describe("mayTearDownStack with an owner file", () => {
     ).toBe(true);
   });
 
+  it("keeps a stack whose containers name another checkout, whatever the owner file says", () => {
+    expect(
+      mayTearDownStack({
+        slug: "shared",
+        worktreePath: worktree,
+        pinned: null,
+        owner: worktree,
+        ownerDirs: ["/src/rome"],
+      }),
+    ).toBe(false);
+  });
+
   it("keeps a stack whose owner file names another checkout", () => {
     expect(
       mayTearDownStack({

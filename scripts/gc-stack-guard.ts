@@ -41,17 +41,17 @@ export const OWNER_FILE = ".dev-stack-owner";
 
 /**
  * Whether removing the worktree at `worktreePath` may also remove the stack
- * named `slug` and its home dir. Never when this shell pins that slug.
- * Otherwise the owner file decides. A stack started before dev-up.sh wrote
- * that file falls back to its containers, and needs at least one, all
- * started from this worktree.
+ * named `slug` and its home dir. Never when this shell pins that slug, and
+ * never when the owner file or any container names another checkout.
+ * Otherwise the owner file naming this worktree is enough. A stack started
+ * before dev-up.sh wrote that file needs at least one container, all started
+ * from this worktree.
  *
  * `owner` is the owner file's content, or null when there is none.
  * `ownerDirs` is the compose working directory of each of the stack's
- * containers, or null when Docker could not be asked. When neither proves
- * ownership the stack is kept: deleting a home dir that belongs to another
- * checkout loses its database, while keeping one only leaves a directory to
- * remove by hand.
+ * containers, or null when Docker could not be asked. Any doubt keeps the
+ * stack: deleting a home dir that belongs to another checkout loses its
+ * database, while keeping one only leaves a directory to remove by hand.
  */
 export function mayTearDownStack(input: {
   slug: string;
@@ -61,7 +61,8 @@ export function mayTearDownStack(input: {
   ownerDirs: readonly string[] | null;
 }): boolean {
   if (input.pinned !== null && input.slug === input.pinned) return false;
-  if (input.owner !== null) return samePath(input.owner, input.worktreePath);
-  if (input.ownerDirs === null || input.ownerDirs.length === 0) return false;
-  return input.ownerDirs.every((dir) => samePath(dir, input.worktreePath));
+  const mine = (dir: string) => samePath(dir, input.worktreePath);
+  if (input.ownerDirs?.some((dir) => !mine(dir))) return false;
+  if (input.owner !== null) return mine(input.owner);
+  return input.ownerDirs !== null && input.ownerDirs.length > 0;
 }
