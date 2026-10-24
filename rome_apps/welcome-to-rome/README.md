@@ -51,7 +51,7 @@ changes to the webchat route, storage, or the front-end Chat component.
 sign-in callback and the local onboarding page both land a freshly set-up
 guardian on `/full/apps/welcome-to-rome` (see `resolveAuthRouting` in
 `packages/web/src/lib/auth-routing.ts`), so this app's web bundle is the entry
-point into the product. It reads `GET /` and shows where the welcome run
+point into the product. It reads `GET /state` and shows where the welcome run
 stands:
 
 - **First run** (cursor at `greet`): the greeting and a **Start chat** button.

@@ -16,8 +16,11 @@ function requestLocale(request: RomeAppApiRequest): WelcomeLocale | undefined {
 /**
  * welcome-to-rome app API, called by the landing screen (src/web/App.tsx).
  *
- * - `GET /` returns the agent name and where the welcome run stands, so the
- *   landing screen can offer to continue a run instead of starting a new one.
+ * - `GET /state` returns the agent name and where the welcome run stands, so
+ *   the landing screen can offer to continue a run instead of starting a new
+ *   one. The bare app path (`fetchAppApi("")`) is the host's app-management
+ *   route, which never reaches this handler, so the landing screen uses this
+ *   named route. `GET /` (with a trailing slash) returns the same.
  * - `POST /reset` clears the run before the landing screen opens a new chat.
  *   When supplied, the locale is persisted as the guardian's language before
  *   the chat starts. No memory or transcript is touched.
@@ -28,7 +31,7 @@ class WelcomeApiHandler implements RomeAppApiHandler {
   async handle(request: RomeAppApiRequest): Promise<Response> {
     const route = request.path.join("/");
 
-    if (request.method === "GET" && request.path.length === 0) {
+    if (request.method === "GET" && (request.path.length === 0 || route === "state")) {
       const { node, aiConnected, completedAt, sessionId } = createProgressRepository(
         this.ctx.db,
       ).get();

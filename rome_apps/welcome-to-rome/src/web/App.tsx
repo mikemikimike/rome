@@ -228,7 +228,7 @@ export default function App({ bootstrap }: { bootstrap: RomeAppBootstrap }) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchAppApi("")
+    void fetchAppApi("state")
       .then(async (res) => {
         if (!res.ok) return {};
         return (await res.json().catch(() => ({}))) as { agentName?: unknown; progress?: unknown };

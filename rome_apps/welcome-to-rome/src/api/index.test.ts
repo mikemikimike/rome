@@ -56,7 +56,7 @@ describe("welcome API", () => {
     const response = await createApiHandler(ctx).handle({
       ...resetRequest(undefined),
       method: "GET",
-      path: [],
+      path: ["state"],
       body: undefined,
     });
 
