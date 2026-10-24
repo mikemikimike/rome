@@ -279,6 +279,9 @@ describe("remixApp", () => {
       "suggestedChannelBindings:",
       "  - channel: webchat",
       "    agent: calendar_agent",
+      "eventSources:",
+      "  - events: calendar.*",
+      "    ensureAction: calendar_lookup",
       "db:",
       "  migrations: db/migrations",
       "  tablePrefix: calendar",
@@ -373,6 +376,7 @@ describe("remixApp", () => {
         },
       ],
       suggestedChannelBindings: [{ channel: "webchat", agent: "ray_calendar__calendar_agent" }],
+      eventSources: [{ events: "calendar.*", ensureAction: "ray_calendar__calendar_lookup" }],
       db: { migrations: "db/migrations", tablePrefix: "ray_calendar" },
     });
     expect(

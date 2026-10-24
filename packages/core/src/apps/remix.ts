@@ -515,6 +515,20 @@ async function rewriteRemixManifest(
       })),
     );
   }
+  if (sourceManifest.eventSources) {
+    const actionNames = new Map<string, string>();
+    for (const rename of artifactRenames.actions) {
+      actionNames.set(rename.sourceName, rename.targetName);
+      actionNames.set(rename.sourcePublicName, rename.targetName);
+    }
+    document.set(
+      "eventSources",
+      sourceManifest.eventSources.map((source) => ({
+        ...source,
+        ensureAction: actionNames.get(source.ensureAction) ?? source.ensureAction,
+      })),
+    );
+  }
   if (sourceManifest.db) {
     document.set("db", {
       ...sourceManifest.db,
