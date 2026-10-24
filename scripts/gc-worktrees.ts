@@ -77,6 +77,8 @@ interface Eligible {
   actions: string; // e.g. "·DOHWB" or "··O·WB" — char per step
   rmRomeHome: boolean;
   hasCompose: boolean;
+  /** A home dir gc keeps because it cannot prove this worktree owns it. */
+  keptHome: string | null;
   locked: boolean; // needs `git worktree unlock` before remove
 }
 
@@ -220,7 +222,7 @@ function stackOwnerDirs(slug: string): string[] | null {
 function stackActions(
   slug: string,
   worktreePath: string,
-): { hasCompose: boolean; rmRomeHome: boolean } {
+): { hasCompose: boolean; rmRomeHome: boolean; keptHome: string | null } {
   const owner = stackOwner(slug);
   const owned = mayTearDownStack({
     slug,
@@ -229,9 +231,12 @@ function stackActions(
     owner,
     ownerDirs: stackOwnerDirs(slug),
   });
+  const home = join(homedir(), ".rome-worktrees", slug);
+  const homeExists = existsSync(home);
   return {
     hasCompose: owned && existsSync(join(worktreePath, "compose.dev.yml")),
-    rmRomeHome: owned && existsSync(join(homedir(), ".rome-worktrees", slug)),
+    rmRomeHome: owned && homeExists,
+    keptHome: !owned && homeExists ? home : null,
   };
 }
 
@@ -375,7 +380,7 @@ function classify(wt: Worktree, ctx: Ctx): Classified {
   if (state === "UNMERGED") return skip("UNMERGED");
 
   const slug = slugify(base);
-  const { hasCompose, rmRomeHome } = stackActions(slug, wt.path);
+  const { hasCompose, rmRomeHome, keptHome } = stackActions(slug, wt.path);
   const actions =
     (wt.locked ? "L" : "·") + (hasCompose ? "D" : "·") + (rmRomeHome ? "H" : "·") + "WB";
 
@@ -387,6 +392,7 @@ function classify(wt: Worktree, ctx: Ctx): Classified {
     actions,
     rmRomeHome,
     hasCompose,
+    keptHome,
     locked: wt.locked,
   };
 }
@@ -482,6 +488,14 @@ Legend  L=git worktree unlock      D=docker compose down -v
         H=rm rome-home             W=git worktree remove
         B=git branch -D            ·=skipped
 `);
+    const kept = eligible.filter((e) => e.keptHome !== null);
+    if (kept.length > 0) {
+      console.log(
+        "Kept, since gc cannot prove these worktrees started them. Remove by hand if unused:",
+      );
+      for (const e of kept) console.log(`  ${e.slug.padEnd(30)} ${e.keptHome}`);
+      console.log("");
+    }
   }
 }
 
@@ -620,7 +634,7 @@ function dirtyToEligible(s: Skipped): Eligible {
     throw new Error("dirtyToEligible: not a dirty worktree with a branch");
   }
   const slug = slugify(s.base);
-  const { hasCompose, rmRomeHome } = stackActions(slug, s.worktree.path);
+  const { hasCompose, rmRomeHome, keptHome } = stackActions(slug, s.worktree.path);
   const actions =
     (s.worktree.locked ? "L" : "·") + (hasCompose ? "D" : "·") + (rmRomeHome ? "H" : "·") + "WB";
   return {
@@ -631,6 +645,7 @@ function dirtyToEligible(s: Skipped): Eligible {
     actions,
     rmRomeHome,
     hasCompose,
+    keptHome,
     locked: s.worktree.locked,
   };
 }

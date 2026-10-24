@@ -33,10 +33,12 @@ if [ -n "${ROME_DEV_SLUG:-}" ]; then
     echo "worktree-slug: ROME_DEV_SLUG=\"$ROME_DEV_SLUG\" has no letters or digits, so it names no stack." >&2
     exit 1
   fi
-  # The shared singletons' compose projects (infra/traefik, infra/observability).
-  # A stack under one of these names would merge into it.
+  # The shared singletons' compose projects (infra/traefik, infra/observability)
+  # and the hostnames the obs singleton routes. A stack under one of these
+  # names would merge into a singleton or race it for a <slug>.rome.localhost
+  # router.
   case "$slug" in
-    rome-traefik | rome-obs)
+    rome-traefik | rome-obs | obs | clickhouse | otlp)
       echo "worktree-slug: ROME_DEV_SLUG=\"$ROME_DEV_SLUG\" is the name of a shared Rome stack. Pick another." >&2
       exit 1
       ;;

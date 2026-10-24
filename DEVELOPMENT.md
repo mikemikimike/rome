@@ -158,9 +158,13 @@ ROME_DEV_SLUG=rome pnpm dev:all   # always http://rome.rome.localhost:3000
 ROME_DEV_SLUG=rome ./r pnpm test  # ./r finds the container by the same slug
 ```
 
-Set it per command or per directory, for example with direnv, not in a shell
-profile. A profile pins every worktree and every agent-spawned worktree to the
-same stack, which undoes the isolation above.
+Set it per command, not in a shell profile or a direnv `.envrc`. A profile
+pins every worktree on the machine to one stack, and an `.envrc` in the main
+checkout reaches the worktrees nested under it (`.worktrees/`,
+`.claude/worktrees/`). Either undoes the isolation above. A stack remembers the
+checkout that started it, and `pnpm dev:all` from another checkout refuses it
+even while it is stopped. Remove `.dev-stack-owner` from the stack's home dir
+to hand it over.
 
 Every branch then shares that stack's data, including the database. A
 migration from one branch stays applied after you switch to a branch that does

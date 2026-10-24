@@ -152,13 +152,17 @@ if [ -n "$existing_project_labels" ]; then
       [ -n "$dir" ] && printf '  %s\n' "$dir" >&2
     done <<<"$other_roots"
     if [ -n "${ROME_DEV_SLUG:-}" ]; then
-      echo "        ROME_DEV_SLUG=${ROME_DEV_SLUG} pins this name. Unset it here, or stop that stack first." >&2
+      echo "        ROME_DEV_SLUG=${ROME_DEV_SLUG} pins this name. Unset it here, or run dev:all from that checkout." >&2
     else
       echo "        Two worktrees share a basename. Rename one directory and retry." >&2
     fi
     exit 1
   fi
 fi
+
+# A stopped stack has no running containers for the check above to see, so
+# also refuse one whose recorded owner is another checkout.
+scripts/dev-stack-owner-check.sh "$ROME_WORKTREE_HOME" "$(git rev-parse --show-toplevel)"
 
 # ---------------------------------------------------------------------------
 # 0.2. Preflight — drop containers in this project that reference a network

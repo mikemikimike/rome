@@ -66,7 +66,7 @@ describe("worktree-slug.sh", () => {
   });
 
   it("refuses the names of the shared singleton stacks", () => {
-    for (const value of ["rome-traefik", "Rome Obs"]) {
+    for (const value of ["rome-traefik", "Rome Obs", "obs", "clickhouse", "otlp"]) {
       const r = slug(value);
       expect(r.status).toBe(1);
       expect(r.stdout).toBe("");
