@@ -26,10 +26,7 @@ describe("appChangesSince attribution", () => {
     await writeFile(known, "practice changed");
     await writeFile(other, "concurrent changed");
 
-    const changes = attributeAppChanges(
-      await appChangesSince(root, before),
-      new Set([join(root, "notes")]),
-    );
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([known]));
     expect(changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: known, attribution: "practice" }),
@@ -56,6 +53,29 @@ describe("appChangesSince attribution", () => {
       expect.arrayContaining([
         expect.objectContaining({ path: shared, attribution: "practice" }),
         expect.objectContaining({ path: other, attribution: "unattributed" }),
+      ]),
+    );
+  });
+
+  it("does not attribute every file in a created app directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "dream-app-changes-"));
+    const copy = await mkdtemp(join(tmpdir(), "dream-app-snapshot-"));
+    roots.push(root, copy);
+    const app = join(root, "calendar");
+    const scaffold = join(app, "src", "index.ts");
+    const concurrent = join(app, "src", "guardian.ts");
+    const before = await snapshotApps(root, copy);
+
+    await mkdir(join(app, "src"), { recursive: true });
+    await writeFile(scaffold, "created by app management");
+    await writeFile(concurrent, "created by another chat");
+
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([app]));
+
+    expect(changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: scaffold, attribution: "unattributed" }),
+        expect.objectContaining({ path: concurrent, attribution: "unattributed" }),
       ]),
     );
   });
@@ -87,10 +107,7 @@ describe("appChangesSince attribution", () => {
     const before = await snapshotApps(root, copy);
     await rm(known);
 
-    const changes = attributeAppChanges(
-      await appChangesSince(root, before),
-      new Set([join(root, "notes")]),
-    );
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([known]));
 
     expect(changes).toContainEqual(
       expect.objectContaining({ path: known, attribution: "practice", content: "" }),

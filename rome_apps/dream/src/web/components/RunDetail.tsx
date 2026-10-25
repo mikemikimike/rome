@@ -16,6 +16,7 @@ import {
 } from "../lib/api";
 import { splitFrontmatter, stripLeadingTitle } from "../lib/diff";
 import { KIND_LABEL, formatDuration } from "../lib/format";
+import { dreamAppChangeGroups } from "../lib/run-detail-files";
 import {
   ChangeBody,
   FileChangeCard,
@@ -228,10 +229,7 @@ function NoResult({ children }: { children: ReactNode }) {
 function DreamResults({ run }: { run: Run }) {
   const journals = run.files.filter((f) => f.area === "journal");
   const memory = run.files.filter((f) => f.area === "memory");
-  const appChanges = run.files.filter((f) => f.area === "other");
-  const touchedByPractice = appChanges.filter((f) => f.attribution === "practice");
-  const sourceUnknown = appChanges.filter((f) => f.attribution !== "practice");
-  const other = run.files.filter((f) => f.area === "skill");
+  const { touchedByPractice, sourceUnknown, other } = dreamAppChangeGroups(run.files);
 
   if (run.files.length === 0) {
     return run.status === "completed" ? <NoResult>No file changes were recorded.</NoResult> : null;

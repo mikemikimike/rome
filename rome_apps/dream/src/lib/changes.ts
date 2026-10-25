@@ -366,7 +366,7 @@ function shortPath(path: string): string {
 export interface ChangedFile extends ClassifiedPath {
   path: string;
   changes: Array<Omit<FileChange, "path">>;
-  /** Combined provenance when a file has changes from more than one source. */
+  /** Conservative provenance from the changes recorded for this file. */
   attribution: ChangeAttribution | null;
 }
 
@@ -380,9 +380,9 @@ export function groupByFile(changes: FileChange[]): ChangedFile[] {
       files.set(path, file);
     }
     file.changes.push(change);
-    if (change.attribution === "practice") file.attribution = "practice";
-    else if (change.attribution === "unattributed" && file.attribution === null) {
-      file.attribution = "unattributed";
+    if (change.attribution === "unattributed") file.attribution = "unattributed";
+    else if (change.attribution === "practice" && file.attribution === null) {
+      file.attribution = "practice";
     }
   }
   return [...files.values()];

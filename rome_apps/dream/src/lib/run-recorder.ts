@@ -44,10 +44,7 @@ function reportsActionError(output: unknown): boolean {
  * status wins, so the stream has to be read to its end before classifying.
  */
 export class RunRecorder {
-  private readonly pending = new Map<
-    string,
-    { changes: FileChange[]; knownPaths: string[]; appManagementCreate: boolean }
-  >();
+  private readonly pending = new Map<string, { changes: FileChange[]; knownPaths: string[] }>();
   private readonly knownAppPaths = new Set<string>();
   summary = "";
   error: string | null = null;
@@ -93,17 +90,11 @@ export class RunRecorder {
             ]),
           ].filter((path) => isWithin(path, appRoot))
         : [];
-      const appManagementCreate =
-        appRoot !== undefined && appManagementArgs(event.input)?.op === "create";
       const changes = appRoot
         ? allChanges.filter((change) => !isWithin(change.path, appRoot))
         : allChanges;
-      if (changes.length > 0 || knownPaths.length > 0 || appManagementCreate) {
-        this.pending.set(event.id, {
-          changes,
-          knownPaths,
-          appManagementCreate,
-        });
+      if (changes.length > 0 || knownPaths.length > 0) {
+        this.pending.set(event.id, { changes, knownPaths });
       }
       return;
     }
@@ -112,10 +103,7 @@ export class RunRecorder {
       if (!pending) return;
       this.pending.delete(event.toolUseId);
       if (event.isError || reportsActionError(event.output)) return;
-      for (const path of [
-        ...pending.knownPaths,
-        ...(pending.appManagementCreate ? appManagementResultPaths(event.output) : []),
-      ]) {
+      for (const path of pending.knownPaths) {
         if (this.ignoredDir && isWithin(path, this.ignoredDir)) this.knownAppPaths.add(path);
       }
       if (pending.changes.length > 0) {
@@ -129,38 +117,6 @@ export class RunRecorder {
     if (this.error !== null) return { status: "failed", error: this.error };
     return { status: "completed", summary: this.summary };
   }
-}
-
-function appManagementArgs(input: unknown): Record<string, unknown> | null {
-  if (!input || typeof input !== "object") return null;
-  const record = input as Record<string, unknown>;
-  const actionName = record.action_name;
-  if (typeof actionName !== "string" || actionName.split(":").at(-1) !== "app_management") {
-    return null;
-  }
-  const args = record.json_args;
-  return args && typeof args === "object" && !Array.isArray(args)
-    ? (args as Record<string, unknown>)
-    : null;
-}
-
-function appManagementResultPaths(output: unknown): string[] {
-  const text = resultText(output).trim();
-  let result: unknown = output;
-  if (text.startsWith("{")) {
-    try {
-      result = JSON.parse(text) as unknown;
-    } catch {
-      return [];
-    }
-  }
-  if (!result || typeof result !== "object" || Array.isArray(result)) return [];
-  const envelope = result as Record<string, unknown>;
-  if (envelope.status === "error") return [];
-  const data = envelope.status === "ok" ? envelope.data : result;
-  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
-  const created = data as Record<string, unknown>;
-  return created.created === true && typeof created.rootPath === "string" ? [created.rootPath] : [];
 }
 
 /**

@@ -341,7 +341,7 @@ describe("groupByFile", () => {
     ]);
   });
 
-  it("keeps a file marked as touched when another change has unknown source", () => {
+  it("prefers unknown provenance when a file has an unattributed change", () => {
     const path = "/apps/notes/src/index.ts";
     const files = groupByFile([
       {
@@ -362,6 +362,6 @@ describe("groupByFile", () => {
       },
     ]);
 
-    expect(files).toMatchObject([{ path, attribution: "practice", changes: [{}, {}] }]);
+    expect(files).toMatchObject([{ path, attribution: "unattributed", changes: [{}, {}] }]);
   });
 });

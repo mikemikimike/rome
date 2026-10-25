@@ -94,7 +94,11 @@ export async function snapshotApps(dir: string, copyDir: string): Promise<AppsSn
 }
 
 function attributionFor(path: string, practicePaths: ReadonlySet<string>): ChangeAttribution {
-  return [...practicePaths].some((root) => isWithin(path, root)) ? "practice" : "unattributed";
+  return [...practicePaths].some(
+    (touchedPath) => isWithin(path, touchedPath) && isWithin(touchedPath, path),
+  )
+    ? "practice"
+    : "unattributed";
 }
 
 export function attributeAppChanges(

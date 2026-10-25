@@ -3,7 +3,7 @@ import type { FileChange } from "./changes.js";
 import { RunRecorder } from "./run-recorder.js";
 
 describe("RunRecorder app provenance", () => {
-  it("keeps successful app targets for the final diff without recording them twice", () => {
+  it("keeps file-level app targets without treating created directories as touched", () => {
     const added: FileChange[] = [];
     const repo = { addChanges: (_id: string, changes: FileChange[]) => added.push(...changes) };
     const recorder = new RunRecorder(repo, "run", "/apps");
@@ -42,7 +42,7 @@ describe("RunRecorder app provenance", () => {
     });
 
     expect(added).toEqual([]);
-    expect([...recorder.knownPaths()]).toEqual(["/apps/notes/src/main.ts", "/apps/calendar"]);
+    expect([...recorder.knownPaths()]).toEqual(["/apps/notes/src/main.ts"]);
   });
 
   it("does not attribute failed app writes", () => {
@@ -64,13 +64,48 @@ describe("RunRecorder app provenance", () => {
     expect([...recorder.knownPaths()]).toEqual([]);
   });
 
-  it("reads remix paths from the serialized app-management result", () => {
+  it("does not record changes from a structured action error", () => {
+    const added: FileChange[] = [];
+    const recorder = new RunRecorder(
+      { addChanges: (_id, changes) => added.push(...changes) },
+      "run",
+      "/apps",
+    );
+    recorder.observe({
+      type: "tool_use",
+      id: "failed-memory-write",
+      tool: "execute_action",
+      input: {
+        action_name: "write_memory_file",
+        json_args: { path: "/memory/MEMORY.md", content: "not written" },
+      },
+    });
+    recorder.observe({
+      type: "tool_result",
+      toolUseId: "failed-memory-write",
+      tool: "execute_action",
+      output: { status: "error", error: "denied" },
+    });
+
+    expect(added).toEqual([]);
+    expect([...recorder.knownPaths()]).toEqual([]);
+  });
+
+  it("does not treat a created remix directory as a touched file", () => {
     const recorder = new RunRecorder({ addChanges: () => undefined }, "run", "/apps");
     recorder.observe({
       type: "tool_use",
       id: "remix",
       tool: "execute_action",
-      input: { action_name: "system:app_management", json_args: { op: "create", appId: "notes" } },
+      input: {
+        action_name: "system:app_management",
+        json_args: {
+          op: "create",
+          appId: "ray-notes",
+          name: "@ray/notes",
+          from: { appId: "source-notes" },
+        },
+      },
     });
     recorder.observe({
       type: "tool_result",
@@ -80,13 +115,13 @@ describe("RunRecorder app provenance", () => {
         content: [
           {
             type: "text",
-            text: '{"appId":"notes","created":true,"rootPath":"/apps/notes"}',
+            text: '{"appId":"ray-notes","created":true,"rootPath":"/apps/ray-notes"}',
           },
         ],
       },
     });
 
-    expect([...recorder.knownPaths()]).toEqual(["/apps/notes"]);
+    expect([...recorder.knownPaths()]).toEqual([]);
   });
 
   it("does not infer authorship from an install source path", () => {
@@ -105,48 +140,6 @@ describe("RunRecorder app provenance", () => {
       toolUseId: "install",
       tool: "execute_action",
       output: { status: "ok", data: { appId: "notes" } },
-    });
-
-    expect([...recorder.knownPaths()]).toEqual([]);
-  });
-
-  it("does not attribute structured app action errors", () => {
-    const recorder = new RunRecorder({ addChanges: () => undefined }, "run", "/apps");
-    recorder.observe({
-      type: "tool_use",
-      id: "failed-create",
-      tool: "execute_action",
-      input: {
-        action_name: "system:app_management",
-        json_args: { op: "create", appId: "notes", rootPath: "/apps/notes" },
-      },
-    });
-    recorder.observe({
-      type: "tool_result",
-      toolUseId: "failed-create",
-      tool: "execute_action",
-      output: { status: "error", error: "denied" },
-    });
-
-    expect([...recorder.knownPaths()]).toEqual([]);
-  });
-
-  it("does not attribute an app create while it waits for approval", () => {
-    const recorder = new RunRecorder({ addChanges: () => undefined }, "run", "/apps");
-    recorder.observe({
-      type: "tool_use",
-      id: "pending-create",
-      tool: "execute_action",
-      input: {
-        action_name: "system:app_management",
-        json_args: { op: "create", appId: "notes", rootPath: "/apps/notes" },
-      },
-    });
-    recorder.observe({
-      type: "tool_result",
-      toolUseId: "pending-create",
-      tool: "execute_action",
-      output: { status: "pending_approval", approvalId: "approval" },
     });
 
     expect([...recorder.knownPaths()]).toEqual([]);
