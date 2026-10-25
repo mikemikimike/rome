@@ -12,7 +12,7 @@ import { lineDiff } from "../web/lib/diff.js";
 const MEMORY = "/home/rome/.rome/default/memory";
 
 describe("isSecretFile", () => {
-  it("recognizes secret files with POSIX and Windows separators", () => {
+  it("recognizes secret files without reading them", () => {
     expect(isSecretFile("/apps/notes/.env")).toBe(true);
     expect(isSecretFile("C:\\apps\\notes\\.env.local")).toBe(true);
     expect(isSecretFile("C:\\apps\\notes\\.env.example")).toBe(false);
@@ -341,7 +341,7 @@ describe("groupByFile", () => {
     ]);
   });
 
-  it("marks a file mixed when records disagree on authorship", () => {
+  it("keeps a file marked as touched when another change has unknown source", () => {
     const path = "/apps/notes/src/index.ts";
     const files = groupByFile([
       {
@@ -362,6 +362,6 @@ describe("groupByFile", () => {
       },
     ]);
 
-    expect(files).toMatchObject([{ path, attribution: "mixed", changes: [{}, {}] }]);
+    expect(files).toMatchObject([{ path, attribution: "practice", changes: [{}, {}] }]);
   });
 });

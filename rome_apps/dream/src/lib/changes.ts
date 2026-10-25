@@ -12,10 +12,12 @@
  * unified diff. Both land here as the same `FileChange` rows.
  */
 
+import { isAbsolute, relative, sep } from "node:path";
+
 export type ChangeOp = "write" | "edit";
 
 /** How a change was attributed when it was captured. */
-export type ChangeAttribution = "practice" | "unattributed" | "mixed";
+export type ChangeAttribution = "practice" | "unattributed";
 
 export interface FileChange {
   op: ChangeOp;
@@ -40,6 +42,14 @@ export const SECRET_PLACEHOLDER = "(contents not recorded)";
 
 export function isSecretFile(path: string): boolean {
   return SECRET_FILE.test(path.replaceAll("\\", "/"));
+}
+
+export function isWithin(path: string, root: string): boolean {
+  const fromRoot = relative(root, path);
+  return (
+    fromRoot === "" ||
+    (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`))
+  );
 }
 
 /** Caps one stored change, so a full-file rewrite of a large memory file
@@ -370,9 +380,9 @@ export function groupByFile(changes: FileChange[]): ChangedFile[] {
       files.set(path, file);
     }
     file.changes.push(change);
-    if (change.attribution) {
-      if (file.attribution === null) file.attribution = change.attribution;
-      else if (file.attribution !== change.attribution) file.attribution = "mixed";
+    if (change.attribution === "practice") file.attribution = "practice";
+    else if (change.attribution === "unattributed" && file.attribution === null) {
+      file.attribution = "unattributed";
     }
   }
   return [...files.values()];

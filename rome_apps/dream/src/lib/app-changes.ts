@@ -11,10 +11,11 @@
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
-import { dirname, extname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, extname, join, relative } from "node:path";
 import {
   type ChangeAttribution,
   type FileChange,
+  isWithin,
   isSecretFile,
   MAX_CHANGE_CHARS,
   SECRET_PLACEHOLDER,
@@ -92,45 +93,26 @@ export async function snapshotApps(dir: string, copyDir: string): Promise<AppsSn
   return { files, copyDir };
 }
 
+function attributionFor(path: string, practicePaths: ReadonlySet<string>): ChangeAttribution {
+  return [...practicePaths].some((root) => isWithin(path, root)) ? "practice" : "unattributed";
+}
+
+export function attributeAppChanges(
+  changes: FileChange[],
+  practicePaths: ReadonlySet<string>,
+): FileChange[] {
+  return changes.map((change) => ({
+    ...change,
+    attribution: attributionFor(change.path, practicePaths),
+  }));
+}
+
 /**
  * Files added, modified, or deleted since `before`: edits with their old text
  * when a copy exists, and a deletion as an edit to empty. This is the
  * authoritative record of a run's app changes: a file the agent also touched
  * with `Edit` shows its final state here too.
  */
-function isWithin(path: string, root: string): boolean {
-  const fromRoot = relative(root, path);
-  return (
-    fromRoot === "" ||
-    (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`))
-  );
-}
-
-export interface AppChangeProvenance {
-  practicePaths: ReadonlySet<string>;
-  concurrentWriterPaths: ReadonlySet<string>;
-  concurrentWriterPathUnknown: boolean;
-}
-
-function attributionFor(path: string, provenance: AppChangeProvenance): ChangeAttribution {
-  if (provenance.concurrentWriterPathUnknown) return "unattributed";
-
-  const practice = [...provenance.practicePaths].some((root) => isWithin(path, root));
-  const concurrent = [...provenance.concurrentWriterPaths].some((root) => isWithin(path, root));
-  if (practice && concurrent) return "mixed";
-  return practice ? "practice" : "unattributed";
-}
-
-export function attributeAppChanges(
-  changes: FileChange[],
-  provenance: AppChangeProvenance,
-): FileChange[] {
-  return changes.map((change) => ({
-    ...change,
-    attribution: attributionFor(change.path, provenance),
-  }));
-}
-
 export async function appChangesSince(dir: string, before: AppsSnapshot): Promise<FileChange[]> {
   const after = await signatures(dir);
   const changes: FileChange[] = [];

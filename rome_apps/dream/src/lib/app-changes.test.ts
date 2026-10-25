@@ -26,11 +26,10 @@ describe("appChangesSince attribution", () => {
     await writeFile(known, "practice changed");
     await writeFile(other, "concurrent changed");
 
-    const changes = attributeAppChanges(await appChangesSince(root, before), {
-      practicePaths: new Set([join(root, "notes")]),
-      concurrentWriterPaths: new Set([join(root, "calendar")]),
-      concurrentWriterPathUnknown: false,
-    });
+    const changes = attributeAppChanges(
+      await appChangesSince(root, before),
+      new Set([join(root, "notes")]),
+    );
     expect(changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: known, attribution: "practice" }),
@@ -39,7 +38,7 @@ describe("appChangesSince attribution", () => {
     );
   });
 
-  it("marks a file mixed when both practice and a concurrent writer touched its app", async () => {
+  it("does not extend a touched file to its siblings", async () => {
     const root = await mkdtemp(join(tmpdir(), "dream-app-changes-"));
     const copy = await mkdtemp(join(tmpdir(), "dream-app-snapshot-"));
     roots.push(root, copy);
@@ -51,34 +50,29 @@ describe("appChangesSince attribution", () => {
     await writeFile(shared, "practice's final content");
     await writeFile(other, "concurrent scaffold content");
 
-    const changes = attributeAppChanges(await appChangesSince(root, before), {
-      practicePaths: new Set([shared]),
-      concurrentWriterPaths: new Set([app]),
-      concurrentWriterPathUnknown: false,
-    });
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([shared]));
 
     expect(changes).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: shared, attribution: "mixed" }),
+        expect.objectContaining({ path: shared, attribution: "practice" }),
         expect.objectContaining({ path: other, attribution: "unattributed" }),
       ]),
     );
   });
 
-  it("does not claim practice authorship when a concurrent writer path is unknown", async () => {
+  it("does not treat a matching path prefix as a touched directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "dream-app-changes-"));
     const copy = await mkdtemp(join(tmpdir(), "dream-app-snapshot-"));
     roots.push(root, copy);
-    const path = join(root, "notes", "src", "known.ts");
-    await mkdir(join(root, "notes", "src"), { recursive: true });
+    const path = join(root, "notes-backup", "src", "other.ts");
+    await mkdir(join(root, "notes-backup", "src"), { recursive: true });
     const before = await snapshotApps(root, copy);
     await writeFile(path, "changed");
 
-    const changes = attributeAppChanges(await appChangesSince(root, before), {
-      practicePaths: new Set([path]),
-      concurrentWriterPaths: new Set(),
-      concurrentWriterPathUnknown: true,
-    });
+    const changes = attributeAppChanges(
+      await appChangesSince(root, before),
+      new Set([join(root, "notes")]),
+    );
 
     expect(changes).toContainEqual(expect.objectContaining({ path, attribution: "unattributed" }));
   });
@@ -93,11 +87,10 @@ describe("appChangesSince attribution", () => {
     const before = await snapshotApps(root, copy);
     await rm(known);
 
-    const changes = attributeAppChanges(await appChangesSince(root, before), {
-      practicePaths: new Set([join(root, "notes")]),
-      concurrentWriterPaths: new Set(),
-      concurrentWriterPathUnknown: false,
-    });
+    const changes = attributeAppChanges(
+      await appChangesSince(root, before),
+      new Set([join(root, "notes")]),
+    );
 
     expect(changes).toContainEqual(
       expect.objectContaining({ path: known, attribution: "practice", content: "" }),

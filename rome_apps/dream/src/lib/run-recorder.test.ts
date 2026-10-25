@@ -38,7 +38,7 @@ describe("RunRecorder app provenance", () => {
       type: "tool_result",
       toolUseId: "create",
       tool: "execute_action",
-      output: '{"status":"ok","data":{"rootPath":"/apps/calendar"}}',
+      output: '{"appId":"calendar","created":true,"rootPath":"/apps/calendar"}',
     });
 
     expect(added).toEqual([]);
@@ -64,7 +64,7 @@ describe("RunRecorder app provenance", () => {
     expect([...recorder.knownPaths()]).toEqual([]);
   });
 
-  it("reads app paths from structured action results", () => {
+  it("reads remix paths from the serialized app-management result", () => {
     const recorder = new RunRecorder({ addChanges: () => undefined }, "run", "/apps");
     recorder.observe({
       type: "tool_use",
@@ -76,7 +76,14 @@ describe("RunRecorder app provenance", () => {
       type: "tool_result",
       toolUseId: "remix",
       tool: "execute_action",
-      output: { status: "ok", data: { rootPath: "/apps/notes" } },
+      output: {
+        content: [
+          {
+            type: "text",
+            text: '{"appId":"notes","created":true,"rootPath":"/apps/notes"}',
+          },
+        ],
+      },
     });
 
     expect([...recorder.knownPaths()]).toEqual(["/apps/notes"]);
@@ -119,6 +126,27 @@ describe("RunRecorder app provenance", () => {
       toolUseId: "failed-create",
       tool: "execute_action",
       output: { status: "error", error: "denied" },
+    });
+
+    expect([...recorder.knownPaths()]).toEqual([]);
+  });
+
+  it("does not attribute an app create while it waits for approval", () => {
+    const recorder = new RunRecorder({ addChanges: () => undefined }, "run", "/apps");
+    recorder.observe({
+      type: "tool_use",
+      id: "pending-create",
+      tool: "execute_action",
+      input: {
+        action_name: "system:app_management",
+        json_args: { op: "create", appId: "notes", rootPath: "/apps/notes" },
+      },
+    });
+    recorder.observe({
+      type: "tool_result",
+      toolUseId: "pending-create",
+      tool: "execute_action",
+      output: { status: "pending_approval", approvalId: "approval" },
     });
 
     expect([...recorder.knownPaths()]).toEqual([]);

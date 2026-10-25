@@ -46,7 +46,7 @@ export function createAppDbSchema(tablePrefix: string = "dream") {
       content: text("content").notNull(),
       previous: text("previous"),
       truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
-      /** "practice", "unattributed", or "mixed" for app filesystem changes. */
+      /** Whether Dream observed practice touching this app path. */
       attribution: text("attribution").$type<ChangeAttribution>(),
       createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     },

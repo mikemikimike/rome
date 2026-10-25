@@ -650,18 +650,6 @@ describe("dream skills", () => {
       [...editEvents, ...writeEvents, ...deleteEvents, { type: "result", content: "Fixed notes." }],
       () => {
         const calendar = join(apps, "calendar");
-        const executionId = `concurrent-app-management-${Date.now()}`;
-        const executionTime = Math.floor(Date.now() / 1000);
-        testDb.db.run(sql`
-          INSERT INTO action_executions (
-            id, root_execution_id, action_name, action_type, status, args,
-            initiator, started_at, finished_at, created_at
-          ) VALUES (
-            ${executionId}, ${executionId}, 'app_management', 'system', 'success',
-            ${JSON.stringify({ op: "create", appId: "calendar", rootPath: calendar, template: "default" })},
-            'agent:core:main', ${executionTime}, ${executionTime}, ${executionTime}
-          )
-        `);
         mkdirSync(join(calendar, "src"), { recursive: true });
         writeFileSync(join(calendar, "src/shared.ts"), "created by app management");
         writeFileSync(join(calendar, "src/other.ts"), "created by app management");
@@ -693,7 +681,7 @@ describe("dream skills", () => {
     });
     expect(byPath("calendar/src/shared.ts")).toMatchObject({
       content: "practice's final content",
-      attribution: "mixed",
+      attribution: "practice",
     });
     expect(byPath("calendar/src/other.ts")).toMatchObject({ attribution: "unattributed" });
     expect(byPath("notes/src/elsewhere.ts")).toMatchObject({
