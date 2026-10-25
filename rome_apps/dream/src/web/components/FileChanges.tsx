@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, FileText } from "lucide-react";
 import { navigateRome } from "@rome-os/app-web-sdk";
+import { Badge } from "@rome-os/ui/badge";
 import { Button } from "@rome-os/ui/button";
 import { cn } from "@rome-os/ui/cn";
 import type { ChangedFile } from "../lib/api";
@@ -124,7 +125,7 @@ export function FileChangeCard({ file }: { file: ChangedFile }) {
   return (
     <FilePanel
       title={<span className="truncate font-mono text-aux text-foreground">{file.label}</span>}
-      meta={<span className="shrink-0 text-aux text-muted-foreground">{changeLabel(file)}</span>}
+      meta={<Badge variant="muted">{changeLabel(file)}</Badge>}
       action={file.memoryFile ? <OpenInMemoryButton file={file.memoryFile} /> : null}
     >
       <div className="divide-y divide-border-subtle">
