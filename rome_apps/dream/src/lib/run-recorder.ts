@@ -1,6 +1,6 @@
 import type { AgentEvent } from "@rome-os/app-runtime";
 import type { RunsRepository } from "../db/repositories/runs.js";
-import { changesFromToolUse, isWithin, pathsFromToolUse, type FileChange } from "./changes.js";
+import { fileChangesFromToolUse, isWithin, type FileChange } from "./changes.js";
 import { HEARTBEAT_MS } from "./run-view.js";
 
 type RunOutcome = Parameters<RunsRepository["finish"]>[1];
@@ -80,15 +80,12 @@ export class RunRecorder {
       return;
     }
     if (event.type === "tool_use") {
-      const allChanges = changesFromToolUse(event.tool, event.input);
+      const { changes: allChanges, paths } = fileChangesFromToolUse(event.tool, event.input);
       const appRoot = this.ignoredDir;
       const knownPaths = appRoot
-        ? [
-            ...new Set([
-              ...pathsFromToolUse(event.tool, event.input),
-              ...allChanges.map((change) => change.path),
-            ]),
-          ].filter((path) => isWithin(path, appRoot))
+        ? [...new Set([...paths, ...allChanges.map((change) => change.path)])].filter((path) =>
+            isWithin(path, appRoot),
+          )
         : [];
       const changes = appRoot
         ? allChanges.filter((change) => !isWithin(change.path, appRoot))
@@ -104,7 +101,7 @@ export class RunRecorder {
       this.pending.delete(event.toolUseId);
       if (event.isError || reportsActionError(event.output)) return;
       for (const path of pending.knownPaths) {
-        if (this.ignoredDir && isWithin(path, this.ignoredDir)) this.knownAppPaths.add(path);
+        this.knownAppPaths.add(path);
       }
       if (pending.changes.length > 0) {
         this.repo.addChanges(this.runId, pending.changes);

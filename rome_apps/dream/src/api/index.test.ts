@@ -1,4 +1,4 @@
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type { RomeAppApiRequest, RomeAppCaller, RomeAppContext } from "@rome-os/app-runtime";
@@ -89,6 +89,27 @@ function seedDream(): string {
 }
 
 describe("dream API", () => {
+  it("reads practice notes when the memory directory has a trailing separator", () => {
+    const runs = createRunsRepository(appDb());
+    const memoryDir = `${join("profile", "memory")}${sep}`;
+    const previousRun = runs.start({ kind: "dream", windowHours: 24 });
+    runs.addChanges(previousRun, [
+      {
+        op: "edit",
+        path: join(memoryDir, "journal", "2026", "10", "06.md"),
+        content: "## Practice notes",
+        previous: null,
+        truncated: false,
+      },
+    ]);
+    runs.finish(previousRun, { status: "completed", summary: "Saved notes." });
+    const currentRun = runs.start({ kind: "dream", windowHours: 24 });
+
+    expect(runs.practiceNotes(memoryDir, 10, currentRun)).toMatchObject([
+      { content: "## Practice notes" },
+    ]);
+  });
+
   it("lists runs with what each one produced", async () => {
     seedDream();
     const runs = createRunsRepository(appDb());

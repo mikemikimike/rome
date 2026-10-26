@@ -54,6 +54,7 @@ async function installedSkillChanges(
       content: content.slice(0, MAX_CHANGE_CHARS),
       previous: previous?.slice(0, MAX_CHANGE_CHARS) ?? null,
       truncated: content.length > MAX_CHANGE_CHARS || (previous?.length ?? 0) > MAX_CHANGE_CHARS,
+      attribution: "practice",
     });
   }
   return changes;

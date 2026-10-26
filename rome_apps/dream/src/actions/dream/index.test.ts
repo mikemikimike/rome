@@ -679,6 +679,7 @@ describe("dream skills", () => {
       op: "write",
       content: "export const fixed = true;",
     });
+    // This records that practice touched the file, not that practice was its only writer.
     expect(byPath("calendar/src/shared.ts")).toMatchObject({
       content: "practice's final content",
       attribution: "practice",
@@ -868,6 +869,7 @@ describe("dream skills", () => {
         op: "write",
         path: join(carrierDir, "skills/rename-invoices/SKILL.md"),
         content: SKILL,
+        attribution: "practice",
       }),
     );
   });

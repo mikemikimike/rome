@@ -231,6 +231,7 @@ export class RunsRepository {
     runId: string,
   ): Array<{ startedAt: Date; content: string }> {
     const { runs, runChanges } = this.tables;
+    const journalPrefix = `${join(memoryDir, "journal")}${sep}`;
     const rows = this.db
       .select({ startedAt: runs.startedAt, content: runChanges.content })
       .from(runChanges)
@@ -241,7 +242,7 @@ export class RunsRepository {
           ne(runs.id, runId),
           eq(runChanges.op, "edit"),
           isNull(runChanges.previous),
-          sql`substr(${runChanges.path}, 1, ${memoryDir.length + 9}) = ${`${join(memoryDir, "journal")}${sep}`}`,
+          sql`substr(${runChanges.path}, 1, ${journalPrefix.length}) = ${journalPrefix}`,
         ),
       )
       .orderBy(desc(runs.startedAt), desc(runChanges.seq))
