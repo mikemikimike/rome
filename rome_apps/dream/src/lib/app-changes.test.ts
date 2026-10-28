@@ -113,4 +113,20 @@ describe("appChangesSince attribution", () => {
       expect.objectContaining({ path: known, attribution: "practice", content: "" }),
     );
   });
+
+  it("matches equivalent filesystem path spellings", async () => {
+    const root = await mkdtemp(join(tmpdir(), "dream-app-changes-"));
+    const copy = await mkdtemp(join(tmpdir(), "dream-app-snapshot-"));
+    roots.push(root, copy);
+    const known = join(root, "notes", "src", "known.ts");
+    await mkdir(join(root, "notes", "src"), { recursive: true });
+    await writeFile(known, "before");
+    const before = await snapshotApps(root, copy);
+    await writeFile(known, "practice changed");
+
+    const equivalent = known.replace("notes", "NOTES");
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([equivalent]));
+
+    expect(changes).toContainEqual(expect.objectContaining({ path: known, attribution: "practice" }));
+  });
 });

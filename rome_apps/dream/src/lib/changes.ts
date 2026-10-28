@@ -12,7 +12,8 @@
  * unified diff. Both land here as the same `FileChange` rows.
  */
 
-import { isAbsolute, relative, sep } from "node:path";
+import { realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 export type ChangeOp = "write" | "edit";
 
@@ -44,8 +45,29 @@ export function isSecretFile(path: string): boolean {
   return SECRET_FILE.test(path.replaceAll("\\", "/"));
 }
 
+/**
+ * Compares paths using the filesystem's spelling when the path exists. For
+ * deleted files, normalize the nearest existing parent and retain the tail.
+ */
+export function normalizePath(path: string): string {
+  const resolved = resolve(path);
+  let current = resolved;
+  const tail: string[] = [];
+  while (true) {
+    try {
+      const canonical = realpathSync.native(current);
+      return tail.length === 0 ? canonical : resolve(canonical, ...tail.reverse());
+    } catch {
+      const parent = dirname(current);
+      if (parent === current) return resolved;
+      tail.push(current.slice(parent.length + 1));
+      current = parent;
+    }
+  }
+}
+
 export function isWithin(path: string, root: string): boolean {
-  const fromRoot = relative(root, path);
+  const fromRoot = relative(normalizePath(root), normalizePath(path));
   return (
     fromRoot === "" ||
     (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`))
