@@ -1,15 +1,18 @@
 import { describe, expect, it } from "@rstest/core";
 import {
   MAX_CHANGE_CHARS,
-  changesFromToolUse,
+  fileChangesFromToolUse,
   classifyPath,
   groupByFile,
   isSecretFile,
-  pathsFromToolUse,
 } from "./changes.js";
 import { lineDiff } from "../web/lib/diff.js";
 
 const MEMORY = "/home/rome/.rome/default/memory";
+const changesFromToolUse = (...args: Parameters<typeof fileChangesFromToolUse>) =>
+  fileChangesFromToolUse(...args).changes;
+const pathsFromToolUse = (...args: Parameters<typeof fileChangesFromToolUse>) =>
+  fileChangesFromToolUse(...args).paths;
 
 describe("isSecretFile", () => {
   it("recognizes secret files without reading them", () => {

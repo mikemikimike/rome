@@ -262,6 +262,9 @@ function DreamResults({ run }: { run: Run }) {
           title="App files changed during practice (source unknown)"
           count={filesCount(sourceUnknown.length)}
         >
+          <p className="text-ui text-muted-foreground">
+            These may include changes made by practice through shell commands or delegated agents.
+          </p>
           {sourceUnknown.map((file) => (
             <FileChangeCard key={file.path} file={file} />
           ))}

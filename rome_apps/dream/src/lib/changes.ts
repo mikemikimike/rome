@@ -126,13 +126,6 @@ function regionsOf(diff: string): Region[] {
   return regions;
 }
 
-/**
- * The file changes in a Codex `fileChange` item. An `add` is the whole new
- * file, so it records as a write. An `update` records one edit per run of
- * changed lines, so the page shows the same diff Codex applied; an update
- * that also renames the file records under the new path, the one that exists
- * after the run. A `delete` leaves nothing to show and records nothing.
- */
 type CodexFileChangeKind = "add" | "update" | "delete";
 
 interface CodexFileChangeItem {
@@ -142,6 +135,7 @@ interface CodexFileChangeItem {
   diff: string | null;
 }
 
+/** Extracts valid paths and kinds even when an item has no diff. */
 function codexFileChangeItems(record: Record<string, unknown>): CodexFileChangeItem[] {
   if (!Array.isArray(record.changes)) return [];
   return record.changes.flatMap((item): CodexFileChangeItem[] => {
@@ -165,6 +159,10 @@ function codexFileChangeItems(record: Record<string, unknown>): CodexFileChangeI
   });
 }
 
+/**
+ * An add records the whole file, an update records each changed region under
+ * its final path, and a delete has no rendered change.
+ */
 function changesFromFileChange(items: CodexFileChangeItem[]): FileChange[] {
   return items.flatMap((item): FileChange[] => {
     const text = item.diff;
@@ -315,19 +313,6 @@ function memoryFileCall(
   if (name === "write_memory_file") return { tool: "Write", input: { file_path: path, ...rest } };
   if (name === "edit_memory_file") return { tool: "Edit", input: { file_path: path, ...rest } };
   return null;
-}
-
-/**
- * The file changes one tool call makes. Covers Claude's `Write`, `Edit`, and
- * `MultiEdit`, and the Codex `fileChange` item the provider reports as `Edit`;
- * any other tool returns nothing.
- */
-export function changesFromToolUse(tool: string, input: unknown): FileChange[] {
-  return fileChangesFromToolUse(tool, input).changes;
-}
-
-export function pathsFromToolUse(tool: string, input: unknown): string[] {
-  return fileChangesFromToolUse(tool, input).paths;
 }
 
 type FileArea = "journal" | "memory" | "skill" | "other";
