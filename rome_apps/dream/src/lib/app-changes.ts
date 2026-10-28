@@ -11,7 +11,7 @@
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
-import { dirname, extname, join, relative } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
 import {
   type ChangeAttribution,
   type FileChange,
@@ -93,21 +93,14 @@ export async function snapshotApps(dir: string, copyDir: string): Promise<AppsSn
   return { files, copyDir };
 }
 
-function attributionFor(path: string, practicePaths: ReadonlySet<string>): ChangeAttribution {
-  return [...practicePaths].some(
-    (touchedPath) => isWithin(path, touchedPath) && isWithin(touchedPath, path),
-  )
-    ? "practice"
-    : "unattributed";
-}
-
 export function attributeAppChanges(
   changes: FileChange[],
   practicePaths: ReadonlySet<string>,
 ): FileChange[] {
+  const knownPaths = new Set([...practicePaths].map((path) => resolve(path)));
   return changes.map((change) => ({
     ...change,
-    attribution: attributionFor(change.path, practicePaths),
+    attribution: knownPaths.has(resolve(change.path)) ? "practice" : "unattributed",
   }));
 }
 

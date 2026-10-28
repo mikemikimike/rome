@@ -51,14 +51,14 @@ export class RunRecorder {
   private interrupted = false;
 
   /**
-   * @param ignoredDir Changes under it are not recorded directly. The action
+   * @param appsRoot Changes under it are not recorded directly. The action
    *   records the final filesystem version; paths here mark files the practice
    *   agent explicitly targeted.
    */
   constructor(
     private readonly repo: Pick<RunsRepository, "addChanges">,
     private readonly runId: string,
-    private readonly ignoredDir?: string,
+    private readonly appsRoot?: string,
   ) {}
 
   /** App paths the practice agent demonstrably touched. */
@@ -81,14 +81,11 @@ export class RunRecorder {
     }
     if (event.type === "tool_use") {
       const { changes: allChanges, paths } = fileChangesFromToolUse(event.tool, event.input);
-      const appRoot = this.ignoredDir;
-      const knownPaths = appRoot
-        ? [...new Set([...paths, ...allChanges.map((change) => change.path)])].filter((path) =>
-            isWithin(path, appRoot),
-          )
+      const knownPaths = this.appsRoot
+        ? [...new Set(paths)].filter((path) => isWithin(path, this.appsRoot!))
         : [];
-      const changes = appRoot
-        ? allChanges.filter((change) => !isWithin(change.path, appRoot))
+      const changes = this.appsRoot
+        ? allChanges.filter((change) => !isWithin(change.path, this.appsRoot!))
         : allChanges;
       if (changes.length > 0 || knownPaths.length > 0) {
         this.pending.set(event.id, { changes, knownPaths });

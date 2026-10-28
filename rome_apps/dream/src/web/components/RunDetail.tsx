@@ -249,7 +249,7 @@ function DreamResults({ run }: { run: Run }) {
       ) : null}
       {touchedByPractice.length > 0 ? (
         <ResultSection
-          title="App files touched by practice"
+          title="Files observed as touched by practice"
           count={filesCount(touchedByPractice.length)}
         >
           {touchedByPractice.map((file) => (
