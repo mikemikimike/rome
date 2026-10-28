@@ -89,6 +89,34 @@ function seedDream(): string {
 }
 
 describe("dream API", () => {
+  it("matches journal paths under a memory directory containing a non-BMP character", () => {
+    const runs = createRunsRepository(appDb());
+    const memoryDir = join("profile", "memory-\u{1F680}");
+    const previousRun = runs.start({ kind: "dream", windowHours: 24 });
+    runs.addChanges(previousRun, [
+      {
+        op: "edit",
+        path: join(memoryDir, "journal", "2026", "10", "06.md"),
+        content: "matching notes",
+        previous: null,
+        truncated: false,
+      },
+      {
+        op: "edit",
+        path: join(memoryDir, "journal-other", "06.md"),
+        content: "not journal notes",
+        previous: null,
+        truncated: false,
+      },
+    ]);
+    runs.finish(previousRun, { status: "completed", summary: "Saved notes." });
+    const currentRun = runs.start({ kind: "dream", windowHours: 24 });
+
+    expect(runs.practiceNotes(memoryDir, 10, currentRun)).toMatchObject([
+      { content: "matching notes" },
+    ]);
+  });
+
   it("reads practice notes when the memory directory has a trailing separator", () => {
     const runs = createRunsRepository(appDb());
     const memoryDir = `${join("profile", "memory")}${sep}`;

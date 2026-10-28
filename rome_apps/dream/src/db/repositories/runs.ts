@@ -242,7 +242,7 @@ export class RunsRepository {
           ne(runs.id, runId),
           eq(runChanges.op, "edit"),
           isNull(runChanges.previous),
-          sql`substr(${runChanges.path}, 1, ${journalPrefix.length}) = ${journalPrefix}`,
+          sql`substr(${runChanges.path}, 1, length(${journalPrefix})) = ${journalPrefix}`,
         ),
       )
       .orderBy(desc(runs.startedAt), desc(runChanges.seq))

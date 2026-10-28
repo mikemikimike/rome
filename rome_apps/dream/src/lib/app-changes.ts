@@ -12,14 +12,7 @@ import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import {
-  type ChangeAttribution,
-  type FileChange,
-  isWithin,
-  isSecretFile,
-  MAX_CHANGE_CHARS,
-  SECRET_PLACEHOLDER,
-} from "./changes.js";
+import { type FileChange, isSecretFile, MAX_CHANGE_CHARS, SECRET_PLACEHOLDER } from "./changes.js";
 
 /** Build output, dependencies, and hidden folders (git, dream staging) are not source. Hidden files are. */
 const SKIPPED_DIRS = new Set(["node_modules", "dist", "build", "coverage"]);
