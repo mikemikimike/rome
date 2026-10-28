@@ -125,10 +125,7 @@ describe("appChangesSince attribution", () => {
     await writeFile(known, "practice changed");
 
     const equivalent = join(root, "notes", "src", ".", "known.ts");
-    const changes = attributeAppChanges(
-      await appChangesSince(root, before),
-      new Set([equivalent]),
-    );
+    const changes = attributeAppChanges(await appChangesSince(root, before), new Set([equivalent]));
 
     expect(changes).toContainEqual(
       expect.objectContaining({ path: known, attribution: "practice" }),
