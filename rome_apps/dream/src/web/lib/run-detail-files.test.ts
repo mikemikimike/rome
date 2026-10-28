@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@rstest/core";
-import type { ChangedFile } from "./api.js";
+import type { ChangedFile } from "../../lib/changes.js";
 import { dreamAppChangeGroups } from "./run-detail-files.js";
 
 function file(overrides: Partial<ChangedFile>): ChangedFile {

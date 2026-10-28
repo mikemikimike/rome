@@ -1,4 +1,4 @@
-import type { ChangedFile } from "./api.js";
+import type { ChangedFile } from "../../lib/changes.js";
 
 export function dreamAppChangeGroups(files: ChangedFile[]) {
   const appFiles = files.filter((file) => file.area === "other" || file.area === "skill");

@@ -124,7 +124,7 @@ describe("appChangesSince attribution", () => {
     const before = await snapshotApps(root, copy);
     await writeFile(known, "practice changed");
 
-    const equivalent = known.replace("notes", "NOTES");
+    const equivalent = join(root, "notes", "src", ".", "known.ts");
     const changes = attributeAppChanges(
       await appChangesSince(root, before),
       new Set([equivalent]),
